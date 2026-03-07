@@ -1,9 +1,3 @@
-/// Configuration de l'API Maarif-Backend (Laravel)
-/// Backend: C:\Users\Opo\Documents\maarif-backend
-///
-/// Pour l'émulateur Android : http://10.0.2.2:8000
-/// Pour un appareil physique : http://VOTRE_IP:8000
-/// Démarrer le backend : php artisan serve
 class ApiConfig {
   static const String baseUrl = 'http://127.0.0.1:8000';
   static const String apiPrefix = '/api';
