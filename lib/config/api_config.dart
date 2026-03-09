@@ -1,13 +1,13 @@
 class ApiConfig {
-  static const String baseUrl = 'http://127.0.0.1:8000';
-  static const String apiPrefix = '/api';
+  static const String baseUrl = 'http://192.168.1.110:8000';
+  static const String apiPrefix = 'api';
 
-  static String get loginUrl => '$baseUrl$apiPrefix/login';
-  static String get userUrl => '$baseUrl$apiPrefix/user';
-  static String get subjectsUrl => '$baseUrl$apiPrefix/subjects';
-  static String subjectCoursesUrl(int subjectId) => '$baseUrl$apiPrefix/subjects/$subjectId/courses';
-  static String courseUrl(int id) => '$baseUrl$apiPrefix/course/$id';
+  static String get loginUrl => '$baseUrl/$apiPrefix/login';
+  static String get userUrl => '$baseUrl/$apiPrefix/user';
+  static String get subjectsUrl => '$baseUrl/$apiPrefix/subjects';
+  static String subjectCoursesUrl(int subjectId) => '$baseUrl/$apiPrefix/subjects/$subjectId/courses';
+  static String courseUrl(int id) => '$baseUrl/$apiPrefix/course/$id';
 
   /// URL complète pour une route donnée
-  static String url(String path) => '$baseUrl$apiPrefix$path';
+  static String url(String path) => '$baseUrl/$apiPrefix$path';
 }

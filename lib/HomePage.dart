@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:maarif_learn/CoursePage.dart';
 import 'package:maarif_learn/PageLogin.dart';
-import 'package:maarif_learn/services/auth_storage.dart';
+import 'package:maarif_learn/ProfilePage.dart';
 import 'package:maarif_learn/services/auth_service.dart';
+import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/course_service.dart';
 
 class Homepage extends StatefulWidget {
@@ -29,22 +30,49 @@ class _HomepageState extends State<Homepage> {
 
   Future<void> _loadUser() async {
     final user = await AuthStorage.getUser();
-    if (mounted) setState(() { _user = user; _userLoading = false; });
+    if (mounted) {
+      setState(() {
+        _user = user;
+        _userLoading = false;
+      });
+    }
   }
 
   Future<void> _loadSubjects() async {
     final token = await AuthStorage.getToken();
     if (token == null) {
-      if (mounted) setState(() { _subjectsLoading = false; _subjectsError = 'Session expirée.'; });
+      if (mounted) {
+        setState(() {
+          _subjectsLoading = false;
+          _subjectsError = 'Session expiree.';
+        });
+      }
       return;
     }
+
     try {
       final list = await CourseService.getSubjects(token);
-      if (mounted) setState(() { _subjects = list; _subjectsLoading = false; _subjectsError = null; });
+      if (mounted) {
+        setState(() {
+          _subjects = list;
+          _subjectsLoading = false;
+          _subjectsError = null;
+        });
+      }
     } on CourseException catch (e) {
-      if (mounted) setState(() { _subjectsLoading = false; _subjectsError = e.message; });
+      if (mounted) {
+        setState(() {
+          _subjectsLoading = false;
+          _subjectsError = e.message;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() { _subjectsLoading = false; _subjectsError = e.toString(); });
+      if (mounted) {
+        setState(() {
+          _subjectsLoading = false;
+          _subjectsError = e.toString();
+        });
+      }
     }
   }
 
@@ -52,48 +80,34 @@ class _HomepageState extends State<Homepage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
-      /// APP BAR
       appBar: AppBar(
         backgroundColor: const Color(0xFF00ADBB),
         elevation: 0,
-
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-
-            Row(
+            Container(
+              width: 35,
+              height: 35,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: Colors.white.withOpacity(0.25),
+              ),
+              child: const Icon(Icons.person, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                    width: 35,
-                    height: 35,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Color(0xFFFfff3)),
-                        color: Color(0xFFFfff3)
-                        
-                    ),
-                    child: Icon(Icons.person,color: Colors.white,)
+                Text(
+                  _userLoading ? '...' : (_user?['name']?.toString() ?? 'Eleve'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _userLoading ? "..." : (_user?['name'] ?? 'Élève'),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      Text(
-                        _userLoading ? "" : ((_user?['level'] as Map?)?['name'] ?? ''),
-                        style: const TextStyle(fontSize: 12, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                )
-
+                Text(
+                  _userLoading ? '' : ((_user?['level'] as Map?)?['name']?.toString() ?? ''),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
               ],
             )
-
           ],
         ),
         actions: [
@@ -111,91 +125,8 @@ class _HomepageState extends State<Homepage> {
             },
           ),
         ],
-
       ),
-
-      /// BODY
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            /// CARTE BIENVENUE
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.teal.shade100,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Bienvenue, ${_user?['name'] ?? 'Élève'} ! 👋",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text("Prêt(e) à apprendre aujourd'hui ?"),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            /// TITRE MES MATIÈRES
-            const Row(
-              children: [
-                Icon(Icons.menu_book, color: Colors.red),
-                SizedBox(width: 8),
-                Text(
-                  "Mes matières",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            /// Liste des matières
-            if (_subjectsLoading)
-              const Center(child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(color: Color(0xFF00ADBB)),
-              ))
-            else if (_subjectsError != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.amber.shade800),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(_subjectsError!)),
-                    TextButton(
-                      onPressed: _loadSubjects,
-                      child: const Text("Réessayer"),
-                    ),
-                  ],
-                ),
-              )
-            else if (_subjects.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  "Aucune matière disponible pour votre niveau.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              )
-            else
-              ..._subjects.map((subject) => _buildSubjectCard(subject)),
-          ],
-        ),
-      ),
-
-      /// BOTTOM NAVIGATION
+      body: _currentIndex == 0 ? _buildSubjectsTab() : const ProfilePage(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: const Color(0xFF00ADBB),
@@ -207,14 +138,99 @@ class _HomepageState extends State<Homepage> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
-            label: "Matières",
+            label: 'Matieres',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
-            label: "Profil",
+            label: 'Profil',
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSubjectsTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade100,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Bienvenue, ${_user?['name'] ?? 'Eleve'} !",
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 5),
+                const Text("Pret(e) a apprendre aujourd'hui ?"),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Row(
+            children: [
+              Icon(Icons.menu_book, color: Colors.red),
+              SizedBox(width: 8),
+              Text(
+                'Mes matieres',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Expanded(
+            child: _buildSubjectsContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectsContent() {
+    if (_subjectsLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF00ADBB)));
+    }
+
+    if (_subjectsError != null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.amber.shade800),
+            const SizedBox(width: 12),
+            Expanded(child: Text(_subjectsError!)),
+            TextButton(
+              onPressed: _loadSubjects,
+              child: const Text('Reessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_subjects.isEmpty) {
+      return const Center(
+        child: Text(
+          'Aucune matiere disponible pour votre niveau.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _subjects.length,
+      itemBuilder: (context, index) => _buildSubjectCard(_subjects[index]),
     );
   }
 
@@ -225,6 +241,7 @@ class _HomepageState extends State<Homepage> {
     } catch (_) {
       color = const Color(0xFF00ADBB);
     }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -267,13 +284,10 @@ class _HomepageState extends State<Homepage> {
                   children: [
                     Text(
                       subject.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      "${subject.coursesCount} cours disponible(s)",
+                      '${subject.coursesCount} cours disponible(s)',
                       style: const TextStyle(fontSize: 10, color: Colors.grey),
                     ),
                   ],
