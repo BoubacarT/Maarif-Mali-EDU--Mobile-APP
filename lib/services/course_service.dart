@@ -198,6 +198,15 @@ class CourseDetail {
   final SubjectRef subject;
   final List<LevelRef> levels;
   final String? contentFileUrl;
+  final String? contentFileName;
+  final String? contentFileKind;
+  final String? contentFileMimeType;
+  final String? contentFileExtension;
+  final bool contentFileIsPreviewable;
+  final String? documentContentStatus;
+  final String? documentContentError;
+  final String? documentContentText;
+  final List<String> documentContentBlocks;
   final List<VideoItem> videos;
   final List<ExerciseItem> exercises;
   final QuizDetail? quiz;
@@ -209,6 +218,15 @@ class CourseDetail {
     required this.subject,
     required this.levels,
     this.contentFileUrl,
+    this.contentFileName,
+    this.contentFileKind,
+    this.contentFileMimeType,
+    this.contentFileExtension,
+    this.contentFileIsPreviewable = false,
+    this.documentContentStatus,
+    this.documentContentError,
+    this.documentContentText,
+    this.documentContentBlocks = const [],
     required this.videos,
     required this.exercises,
     this.quiz,
@@ -225,6 +243,18 @@ class CourseDetail {
               .toList() ??
           [],
       contentFileUrl: json['content_file_url'] as String?,
+      contentFileName: json['content_file_name'] as String?,
+      contentFileKind: json['content_file_kind'] as String?,
+      contentFileMimeType: json['content_file_mime_type'] as String?,
+      contentFileExtension: json['content_file_extension'] as String?,
+      contentFileIsPreviewable: json['content_file_is_previewable'] as bool? ?? false,
+      documentContentStatus: json['document_content_status'] as String?,
+      documentContentError: json['document_content_error'] as String?,
+      documentContentText: json['document_content_text'] as String?,
+      documentContentBlocks: (json['document_content_blocks'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       videos: (json['videos'] as List<dynamic>?)
               ?.map((e) => VideoItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -246,6 +276,8 @@ class VideoItem {
   final String? duration;
   final String? description;
   final String? videoFileUrl;
+  final String? videoUrl;
+  final String? embedUrl;
 
   VideoItem({
     required this.id,
@@ -253,15 +285,25 @@ class VideoItem {
     this.duration,
     this.description,
     this.videoFileUrl,
+    this.videoUrl,
+    this.embedUrl,
   });
 
-  static VideoItem fromJson(Map<String, dynamic> json) => VideoItem(
-        id: json['id'] as int,
-        title: json['title'] as String,
-        duration: json['duration'] as String?,
-        description: json['description'] as String?,
-        videoFileUrl: json['video_file_url'] as String?,
-      );
+  static VideoItem fromJson(Map<String, dynamic> json) {
+    final dynamic rawId = json['id'];
+    final dynamic rawDuration = json['duration'];
+    final String? durationValue = rawDuration == null ? null : rawDuration.toString();
+
+    return VideoItem(
+      id: rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '') ?? 0,
+      title: (json['title'] as String?) ?? 'Vidéo',
+      duration: durationValue,
+      description: json['description'] as String?,
+      videoFileUrl: (json['video_file_url'] as String?) ?? (json['file_url'] as String?),
+      videoUrl: (json['video_url'] as String?) ?? (json['url'] as String?),
+      embedUrl: json['embed_url'] as String?,
+    );
+  }
 }
 
 class ExerciseItem {

@@ -32,11 +32,13 @@ class _CoursepageState extends State<Coursepage> {
     }
     try {
       final res = await CourseService.getCoursesBySubject(widget.subjectId, token);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _courses = res.courses;
         _loading = false;
         _error = null;
       });
+      }
     } on CourseException catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.message; });
     } catch (e) {

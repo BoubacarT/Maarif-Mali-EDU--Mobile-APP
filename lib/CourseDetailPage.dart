@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:maarif_learn/config/api_config.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/course_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -18,6 +21,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   CourseDetail? _course;
   bool _loading = true;
   String? _error;
+  String? _token;
+  bool _compactHeader = false;
+
+  final Map<int, WebViewController> _webControllersByCourseId = {};
 
   @override
   void initState() {
@@ -34,7 +41,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
     try {
       final course = await CourseService.getCourseDetail(widget.courseId, token);
-      if (mounted) setState(() { _course = course; _loading = false; _error = null; });
+      if (mounted) {
+        setState(() {
+          _course = course;
+          _token = token;
+          _loading = false;
+          _error = null;
+        });
+      }
     } on CourseException catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.message; });
     } catch (e) {
@@ -118,39 +132,50 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            color: const Color(0xFF00BCD4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  course.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            height: _compactHeader ? 0 : null,
+            child: _compactHeader
+                ? const SizedBox.shrink()
+                : Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        color: const Color(0xFF00BCD4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              course.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              "Cours • ${course.videos.length} vidéo(s) • ${course.exercises.length} exercice(s)",
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFF00BCD4),
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: const Color(0xFF00BCD4),
+                        tabs: const [
+                          Tab(icon: Icon(Icons.book), text: "Cours"),
+                          Tab(icon: Icon(Icons.play_circle), text: "Vidéos"),
+                          Tab(icon: Icon(Icons.description), text: "Exercices"),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Cours • ${course.videos.length} vidéo(s) • ${course.exercises.length} exercice(s)",
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFF00BCD4),
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF00BCD4),
-            tabs: const [
-              Tab(icon: Icon(Icons.book), text: "Cours"),
-              Tab(icon: Icon(Icons.play_circle), text: "Vidéos"),
-              Tab(icon: Icon(Icons.description), text: "Exercices"),
-            ],
           ),
           Expanded(
             child: TabBarView(
@@ -168,56 +193,208 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildCoursContent(CourseDetail course) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (course.description != null && course.description!.isNotEmpty) ...[
-            const Text(
-              "Description",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    final hasDescription = course.description != null && course.description!.isNotEmpty;
+    final hasFile = course.contentFileUrl != null && course.contentFileUrl!.isNotEmpty;
+    final hasExtractedText = (course.documentContentStatus == 'ready') &&
+        (course.documentContentText != null && course.documentContentText!.trim().isNotEmpty);
+
+    if (hasExtractedText) {
+      return NotificationListener<UserScrollNotification>(
+        onNotification: (notification) {
+          if (_tabController.index != 0) return false;
+          if (notification.direction == ScrollDirection.reverse && !_compactHeader) {
+            setState(() => _compactHeader = true);
+          } else if (notification.direction == ScrollDirection.forward && _compactHeader) {
+            setState(() => _compactHeader = false);
+          }
+          return false;
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasDescription) ...[
+                const Text(
+                  "Description",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  course.description!,
+                  style: const TextStyle(fontSize: 15, height: 1.5),
+                ),
+                const SizedBox(height: 20),
+              ],
+              const Text(
+                "Contenu du cours",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              SelectableText(
+                _normalizeDocumentText(_decodeHtmlEntities(course.documentContentText!)),
+                style: const TextStyle(fontSize: 15, height: 1.6),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!hasFile) {
+      return NotificationListener<UserScrollNotification>(
+        onNotification: (notification) {
+          if (_tabController.index != 0) return false;
+          if (notification.direction == ScrollDirection.reverse && !_compactHeader) {
+            setState(() => _compactHeader = true);
+          } else if (notification.direction == ScrollDirection.forward && _compactHeader) {
+            setState(() => _compactHeader = false);
+          }
+          return false;
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasDescription) ...[
+                const Text(
+                  "Description",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  course.description!,
+                  style: const TextStyle(fontSize: 15, height: 1.5),
+                ),
+              ],
+              if (!hasDescription)
+                const Text(
+                  "Aucun contenu supplémentaire pour ce cours.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              if (course.documentContentStatus == 'failed' &&
+                  course.documentContentError != null &&
+                  course.documentContentError!.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  "Erreur d'extraction du document: ${course.documentContentError}",
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    final fileUri = _resolveCourseFileUri(course.contentFileUrl!);
+    if (fileUri == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            "Le fichier du cours est invalide.",
+            style: TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final controller = _webControllersByCourseId.putIfAbsent(course.id, () {
+      final c = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0x00000000))
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onNavigationRequest: (request) {
+              return NavigationDecision.navigate;
+            },
+          ),
+        );
+      c.loadRequest(
+        fileUri,
+        headers: _buildWebHeaders(),
+      );
+      return c;
+    });
+
+    return Column(
+      children: [
+        if (hasDescription)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Description",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  course.description!,
+                  style: const TextStyle(fontSize: 15, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Support du cours",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              course.description!,
-              style: const TextStyle(fontSize: 15, height: 1.5),
-            ),
-            const SizedBox(height: 20),
-          ],
-          if (course.contentFileUrl != null) ...[
-            const Text(
-              "Support du cours",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: () => _openUrl(course.contentFileUrl!),
-              child: Row(
-                children: const [
-                  Icon(Icons.picture_as_pdf, color: Color(0xFF00BCD4)),
-                  SizedBox(width: 8),
-                  Text(
-                    "Télécharger / ouvrir le fichier du cours",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF00BCD4),
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ],
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Support du cours",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-          ],
-          if ((course.description == null || course.description!.isEmpty) &&
-              course.contentFileUrl == null)
-            const Text(
-              "Aucun contenu supplémentaire pour ce cours.",
-              style: TextStyle(color: Colors.grey),
-            ),
-        ],
-      ),
+          ),
+        Expanded(
+          child: WebViewWidget(controller: controller),
+        ),
+      ],
     );
+  }
+
+  Uri? _resolveCourseFileUri(String rawUrl) {
+    final parsed = Uri.tryParse(rawUrl);
+    if (parsed == null) return null;
+    if (parsed.hasScheme) return parsed;
+
+    final normalizedPath = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
+    return Uri.tryParse('${ApiConfig.baseUrl}$normalizedPath');
+  }
+
+  Map<String, String> _buildWebHeaders() {
+    final headers = <String, String>{
+      'Accept': '*/*',
+    };
+    if (_token != null && _token!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    return headers;
+  }
+
+  String _decodeHtmlEntities(String input) {
+    return input
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#039;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+  }
+
+  String _normalizeDocumentText(String input) {
+    final withUnixNewLines = input.replaceAll('\r\n', '\n');
+    return withUnixNewLines.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }
 
   Widget _buildVideosContent(List<VideoItem> videos) {
@@ -261,11 +438,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                if (v.videoFileUrl != null)
+                if (_resolveVideoUri(v) != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: InkWell(
-                      onTap: () => _openUrl(v.videoFileUrl!),
+                      onTap: () => _openVideoInApp(v),
                       child: const Text(
                         "Voir la vidéo",
                         style: TextStyle(
@@ -274,6 +451,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           decoration: TextDecoration.underline,
                         ),
                       ),
+                    ),
+                  ),
+                if (_resolveVideoUri(v) == null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      "Source vidéo indisponible.",
+                      style: TextStyle(fontSize: 12, color: Colors.redAccent),
                     ),
                   ),
               ],
@@ -349,10 +534,213 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Uri? _resolveVideoUri(VideoItem video) {
+    final candidates = <String?>[
+      video.embedUrl,
+      video.videoUrl,
+      video.videoFileUrl,
+    ];
+    for (final raw in candidates) {
+      if (raw == null || raw.trim().isEmpty) continue;
+      final parsed = Uri.tryParse(raw.trim());
+      if (parsed == null) continue;
+      if (parsed.hasScheme) return parsed;
+      final normalizedPath = raw.startsWith('/') ? raw : '/$raw';
+      final baseOrigins = _candidateBaseOrigins();
+      for (final origin in baseOrigins) {
+        final absolute = Uri.tryParse('$origin$normalizedPath');
+        if (absolute != null) return absolute;
+      }
     }
+    return null;
+  }
+
+  List<String> _candidateBaseOrigins() {
+    final origins = <String>[];
+
+    final courseFileUrl = _course?.contentFileUrl;
+    if (courseFileUrl != null && courseFileUrl.trim().isNotEmpty) {
+      final courseUri = Uri.tryParse(courseFileUrl.trim());
+      if (courseUri != null && courseUri.hasScheme && courseUri.host.isNotEmpty) {
+        origins.add('${courseUri.scheme}://${courseUri.host}${courseUri.hasPort ? ':${courseUri.port}' : ''}');
+      }
+    }
+
+    final apiUri = Uri.tryParse(ApiConfig.baseUrl);
+    if (apiUri != null && apiUri.hasScheme && apiUri.host.isNotEmpty) {
+      final apiOrigin = '${apiUri.scheme}://${apiUri.host}${apiUri.hasPort ? ':${apiUri.port}' : ''}';
+      if (!origins.contains(apiOrigin)) {
+        origins.add(apiOrigin);
+      }
+    }
+
+    return origins;
+  }
+
+  void _openVideoInApp(VideoItem video) {
+    final uri = _resolveVideoUri(video);
+    if (uri == null) return;
+
+    if (_isDirectVideoFile(uri)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _VideoPlayerPage(
+            title: video.title,
+            uri: uri,
+            headers: _buildWebHeaders(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) => NavigationDecision.navigate,
+        ),
+      )
+      ..loadRequest(
+        uri,
+        headers: _buildWebHeaders(),
+      );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF00BCD4),
+            title: Text(
+              video.title,
+              style: const TextStyle(fontSize: 15),
+            ),
+          ),
+          body: WebViewWidget(controller: controller),
+        ),
+      ),
+    );
+  }
+
+  bool _isDirectVideoFile(Uri uri) {
+    final path = uri.path.toLowerCase();
+    return path.endsWith('.mp4') ||
+        path.endsWith('.m3u8') ||
+        path.endsWith('.mov') ||
+        path.endsWith('.webm') ||
+        path.endsWith('.mkv');
+  }
+}
+
+class _VideoPlayerPage extends StatefulWidget {
+  final String title;
+  final Uri uri;
+  final Map<String, String> headers;
+
+  const _VideoPlayerPage({
+    required this.title,
+    required this.uri,
+    required this.headers,
+  });
+
+  @override
+  State<_VideoPlayerPage> createState() => _VideoPlayerPageState();
+}
+
+class _VideoPlayerPageState extends State<_VideoPlayerPage> {
+  VideoPlayerController? _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      final controller = VideoPlayerController.networkUrl(
+        widget.uri,
+        httpHeaders: widget.headers,
+      );
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.play();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      setState(() {
+        _controller = controller;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = "Impossible de lire la vidéo.";
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF00BCD4),
+        title: Text(widget.title, style: const TextStyle(fontSize: 15)),
+      ),
+      body: Center(
+        child: _error != null
+            ? Text(
+                _error!,
+                style: const TextStyle(color: Colors.white70),
+              )
+            : (controller == null || !controller.value.isInitialized)
+                ? const CircularProgressIndicator(color: Colors.white)
+                : AspectRatio(
+                    aspectRatio: controller.value.aspectRatio,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(child: VideoPlayer(controller)),
+                        VideoProgressIndicator(
+                          controller,
+                          allowScrubbing: true,
+                          colors: VideoProgressColors(
+                            playedColor: const Color(0xFF00BCD4),
+                            bufferedColor: Colors.white38,
+                            backgroundColor: Colors.white24,
+                          ),
+                        ),
+                        IconButton(
+                          iconSize: 38,
+                          color: Colors.white,
+                          onPressed: () {
+                            if (controller.value.isPlaying) {
+                              controller.pause();
+                            } else {
+                              controller.play();
+                            }
+                            setState(() {});
+                          },
+                          icon: Icon(
+                            controller.value.isPlaying ? Icons.pause_circle : Icons.play_circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+      ),
+    );
   }
 }

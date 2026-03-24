@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:maarif_learn/CoursePage.dart';
-import 'package:maarif_learn/HomePage.dart';
 import 'package:maarif_learn/PageLogin.dart';
 void main(){
   runApp(const MyApp());
