@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://192.168.1.110:8000';
+  static const String baseUrl = 'http://maarif-learn-backend.test';
   static const String apiPrefix = 'api';
 
   static String get loginUrl => '$baseUrl/$apiPrefix/login';
