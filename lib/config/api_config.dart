@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://maarif-learn-backend.test';
+  static const String baseUrl = 'https://lafiasugubackend.com';
   static const String apiPrefix = 'api';
 
   static String get loginUrl => '$baseUrl/$apiPrefix/login';
