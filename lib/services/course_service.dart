@@ -311,20 +311,51 @@ class ExerciseItem {
   final String question;
   final String? solution;
   final String? difficulty;
+  final String? contentFileUrl;
+  final String? contentFileName;
+  final String? documentContentStatus;
+  final String? documentContentError;
+  final String? documentContentText;
+  final List<String> documentContentBlocks;
 
   ExerciseItem({
     required this.id,
     required this.question,
     this.solution,
     this.difficulty,
+    this.contentFileUrl,
+    this.contentFileName,
+    this.documentContentStatus,
+    this.documentContentError,
+    this.documentContentText,
+    this.documentContentBlocks = const [],
   });
 
-  static ExerciseItem fromJson(Map<String, dynamic> json) => ExerciseItem(
-        id: json['id'] as int,
-        question: json['question'] as String,
-        solution: json['solution'] as String?,
-        difficulty: json['difficulty'] as String?,
-      );
+  static ExerciseItem fromJson(Map<String, dynamic> json) {
+    final dynamic rawId = json['id'];
+    final rawQuestion = (json['question'] as String?) ?? (json['title'] as String?);
+    final trimmed = rawQuestion?.trim();
+    final fileName = json['content_file_name'] as String?;
+    final question = (trimmed != null && trimmed.isNotEmpty)
+        ? trimmed
+        : ((fileName != null && fileName.trim().isNotEmpty) ? fileName.trim() : 'Exercice');
+
+    return ExerciseItem(
+      id: rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '') ?? 0,
+      question: question,
+      solution: json['solution'] as String?,
+      difficulty: json['difficulty'] as String?,
+      contentFileUrl: json['content_file_url'] as String?,
+      contentFileName: fileName,
+      documentContentStatus: json['document_content_status'] as String?,
+      documentContentError: json['document_content_error'] as String?,
+      documentContentText: json['document_content_text'] as String?,
+      documentContentBlocks: (json['document_content_blocks'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
 }
 
 class QuizDetail {
