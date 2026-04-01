@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://192.168.1.141:8000';
+  static const String baseUrl = 'https://lafiasugubackend.com';
   static const String apiPrefix = 'api';
 
   static String get loginUrl => '$baseUrl/$apiPrefix/login';
