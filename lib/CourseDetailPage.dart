@@ -209,32 +209,21 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           return false;
         },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasDescription) ...[
-                const Text(
-                  "Description",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  course.description!,
-                  style: const TextStyle(fontSize: 15, height: 1.5),
-                ),
-                const SizedBox(height: 20),
+          padding: const EdgeInsets.all(16),
+          child: _buildReadingSurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasDescription) ...[
+                  _buildReadingSectionTitle("Description"),
+                  _buildReadingTextBlock(course.description!),
+                  const SizedBox(height: 18),
+                ],
+                _buildReadingSectionTitle("Contenu du cours"),
+                const SizedBox(height: 8),
+                _buildBookPager(course.documentContentText!),
               ],
-              const Text(
-                "Contenu du cours",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              SelectableText(
-                _normalizeDocumentText(_decodeHtmlEntities(course.documentContentText!)),
-                style: const TextStyle(fontSize: 15, height: 1.6),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -247,36 +236,30 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           return false;
         },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (hasDescription) ...[
-                const Text(
-                  "Description",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  course.description!,
-                  style: const TextStyle(fontSize: 15, height: 1.5),
-                ),
+          padding: const EdgeInsets.all(16),
+          child: _buildReadingSurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasDescription) ...[
+                  _buildReadingSectionTitle("Description"),
+                  _buildReadingTextBlock(course.description!),
+                ] else
+                  const Text(
+                    "Aucun contenu supplémentaire pour ce cours.",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                if (course.documentContentStatus == 'failed' &&
+                    course.documentContentError != null &&
+                    course.documentContentError!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    "Erreur d'extraction du document: ${course.documentContentError}",
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                ],
               ],
-              if (!hasDescription)
-                const Text(
-                  "Aucun contenu supplémentaire pour ce cours.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              if (course.documentContentStatus == 'failed' &&
-                  course.documentContentError != null &&
-                  course.documentContentError!.trim().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  "Erreur d'extraction du document: ${course.documentContentError}",
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       );
@@ -391,6 +374,94 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     return withUnixNewLines.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }
 
+  Widget _buildReadingSurface({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 760),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFCF4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4DECC)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.brown.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildReadingSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF3E3427),
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
+  Widget _buildReadingTextBlock(String text) {
+    return SelectableText(
+      _normalizeDocumentText(_decodeHtmlEntities(text)),
+      style: const TextStyle(
+        fontSize: 16,
+        height: 1.82,
+        color: Color(0xFF2F2A24),
+      ),
+      textAlign: TextAlign.justify,
+    );
+  }
+
+  Widget _buildBookPager(String text) {
+    return _BookPager(text: _normalizeDocumentText(_decodeHtmlEntities(text)));
+  }
+
+  Widget _buildSolutionCard(String solution) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F8FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD6E6FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Solution",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          _buildReadingTextBlock(solution),
+        ],
+      ),
+    );
+  }
+
+  String _exerciseDisplayTitle(ExerciseItem exercise, int index) {
+    final fallback = "Exercice ${index + 1}";
+    final raw = exercise.question.trim();
+    if (raw.isEmpty) return fallback;
+
+    final candidate = _normalizeDocumentText(_decodeHtmlEntities(raw));
+    final looksLikeFileName = RegExp(
+      r'^[^\s]+\.(pdf|doc|docx|txt|rtf|odt)$',
+      caseSensitive: false,
+    ).hasMatch(candidate);
+    final looksLikePathOrUrl = candidate.contains('/storage/') || candidate.startsWith('http');
+
+    if (looksLikeFileName || looksLikePathOrUrl) return fallback;
+    return candidate;
+  }
+
   void _maybeToggleCompactHeader(UserScrollNotification notification, int tabIndex) {
     if (_tabController.index != tabIndex) return;
     if (notification.direction == ScrollDirection.reverse && !_compactHeader) {
@@ -498,11 +569,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         itemCount: exercises.length,
         itemBuilder: (context, index) {
           final e = exercises[index];
+          final exerciseTitle = _exerciseDisplayTitle(e, index);
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: ExpansionTile(
               title: Text(
-                _normalizeDocumentText(_decodeHtmlEntities(e.question)),
+                exerciseTitle,
                 style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
               ),
               subtitle: e.difficulty != null
@@ -527,44 +599,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     if (hasExtractedText) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Énoncé / contenu",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            SelectableText(
-              _normalizeDocumentText(_decodeHtmlEntities(e.documentContentText!)),
-              style: const TextStyle(fontSize: 15, height: 1.6),
-            ),
-            if (hasSolution) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Solution",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                    const SizedBox(height: 6),
-                    SelectableText(
-                      _normalizeDocumentText(_decodeHtmlEntities(e.solution!)),
-                      style: const TextStyle(fontSize: 14, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
+        child: _buildReadingSurface(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildReadingSectionTitle("Énoncé / contenu"),
+              const SizedBox(height: 8),
+              _buildBookPager(e.documentContentText!),
+              if (hasSolution) ...[
+                const SizedBox(height: 16),
+                _buildSolutionCard(e.solution!),
+              ],
             ],
-          ],
+          ),
         ),
       );
     }
@@ -611,28 +658,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ),
             if (hasSolution) ...[
               const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Solution",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                    const SizedBox(height: 6),
-                    SelectableText(
-                      _normalizeDocumentText(_decodeHtmlEntities(e.solution!)),
-                      style: const TextStyle(fontSize: 14, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
+              _buildSolutionCard(e.solution!),
             ],
           ],
         ),
@@ -656,31 +682,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     if (hasSolution) {
       return Padding(
         padding: const EdgeInsets.all(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Solution",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 6),
-              SelectableText(
-                _normalizeDocumentText(_decodeHtmlEntities(e.solution!)),
-                style: const TextStyle(fontSize: 14, height: 1.5),
-              ),
-            ],
-          ),
-        ),
+        child: _buildSolutionCard(e.solution!),
       );
     }
 
@@ -929,6 +931,103 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         path.endsWith('.mov') ||
         path.endsWith('.webm') ||
         path.endsWith('.mkv');
+  }
+}
+
+class _BookPager extends StatefulWidget {
+  final String text;
+
+  const _BookPager({required this.text});
+
+  @override
+  State<_BookPager> createState() => _BookPagerState();
+}
+
+class _BookPagerState extends State<_BookPager> {
+  static const int _maxCharsPerPage = 900;
+  late final List<String> _pages = _splitIntoPages(widget.text);
+  int _currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pageHeight = MediaQuery.of(context).size.height * 0.74;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: pageHeight.clamp(380.0, 760.0),
+          child: PageView.builder(
+            itemCount: _pages.length,
+            onPageChanged: (index) => setState(() => _currentPage = index),
+            itemBuilder: (context, index) {
+              return Container(
+                margin: EdgeInsets.zero,
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFDF8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5DFD0)),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    _pages[index],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.85,
+                      color: Color(0xFF2F2A24),
+                    ),
+                    textAlign: TextAlign.justify,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "Page ${_currentPage + 1} / ${_pages.length}  •  Glisser horizontalement",
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF6D6355),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<String> _splitIntoPages(String input) {
+    final cleaned = input.trim();
+    if (cleaned.isEmpty) return const ["Aucun contenu."];
+
+    final paragraphs = cleaned.split('\n\n');
+    final pages = <String>[];
+    final buffer = StringBuffer();
+    int currentCount = 0;
+
+    for (final rawParagraph in paragraphs) {
+      final paragraph = rawParagraph.trim();
+      if (paragraph.isEmpty) continue;
+      final extra = paragraph.length + (currentCount == 0 ? 0 : 2);
+
+      if (currentCount > 0 && currentCount + extra > _maxCharsPerPage) {
+        pages.add(buffer.toString().trim());
+        buffer.clear();
+        currentCount = 0;
+      }
+
+      if (currentCount > 0) {
+        buffer.write('\n\n');
+      }
+      buffer.write(paragraph);
+      currentCount += extra;
+    }
+
+    if (buffer.isNotEmpty) {
+      pages.add(buffer.toString().trim());
+    }
+
+    return pages.isEmpty ? const ["Aucun contenu."] : pages;
   }
 }
 
