@@ -1,11 +1,10 @@
 class ApiConfig {
-  /// URL du backend.
-  /// - Développement local (Laragon) : valeur par défaut ci-dessous.
-  /// - Production : compiler avec
-  ///   `flutter build apk --dart-define=API_URL=https://votre-domaine.com`
+  /// URL du backend — production par défaut.
+  /// Pour le développement local (Laragon), compiler/lancer avec :
+  ///   `flutter run --dart-define=API_URL=http://maarif-learn-backend.test`
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://maarif-learn-backend.test',
+    defaultValue: 'https://maarifmaliedu.maarifmali.org',
   );
   static const String apiPrefix = 'api';
 

@@ -73,12 +73,16 @@ flutter:
     - assets/images/maarif_logo.png
 
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icons/footer_logo.png"
-  adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/icons/footer_logo.png"
+  remove_alpha_ios: true
+  image_path: "assets/images/maarif_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/maarif_logo.png"
+  web:
+    generate: true
+    image_path: "assets/images/maarif_logo.png"
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
