@@ -401,7 +401,7 @@ class QuizOption {
 
   static QuizOption fromJson(Map<String, dynamic> json) => QuizOption(
         id: json['id'] as int,
-        text: json['text'] as String,
+        text: (json['text'] as String?) ?? (json['option_text'] as String?) ?? '',
         isCorrect: json['is_correct'] as bool? ?? false,
       );
 }
