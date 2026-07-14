@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:maarif_learn/SplashGate.dart';
+import 'package:maarif_learn/services/push_service.dart';
 import 'package:maarif_learn/theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PushService.init();
   runApp(
     DevicePreview(
       enabled: kIsWeb, // actif uniquement sur web (Chrome)

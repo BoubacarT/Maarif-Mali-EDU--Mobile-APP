@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import 'auth_storage.dart';
+import 'push_service.dart';
 
 class AuthService {
   /// Connexion au backend Maarif (compte élève).
@@ -22,6 +23,8 @@ class AuthService {
       final user = data['user'] as Map<String, dynamic>?;
       if (token != null && user != null) {
         await AuthStorage.save(token, user);
+        // Enregistre le token push pour ce compte (non bloquant)
+        PushService.registerToken();
       }
       return data;
     } else {
@@ -39,6 +42,8 @@ class AuthService {
 
   /// Déconnexion : supprime token et user du stockage local
   static Future<void> logout() async {
+    // Détache le token push avant de perdre le token d'authentification
+    await PushService.unregisterToken();
     await AuthStorage.clear();
   }
 }

@@ -8,6 +8,7 @@ import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/config/api_config.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/biometric_service.dart';
+import 'package:maarif_learn/services/push_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 
 /// Porte d'entrée de l'application :
@@ -100,6 +101,8 @@ class _SplashGateState extends State<SplashGate> {
 
   void _goHome() {
     if (!mounted) return;
+    // Enregistre le token push en arrière-plan (non bloquant)
+    PushService.registerToken();
     Navigator.of(context).pushReplacement(PageRouteBuilder(
       pageBuilder: (_, __, ___) => const Homepage(),
       transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
