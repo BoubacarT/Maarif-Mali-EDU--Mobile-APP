@@ -1198,6 +1198,14 @@ class _BacPredictionCard extends StatelessWidget {
             Text('${predicted.toStringAsFixed(1)}/20',
                 style: GoogleFonts.plusJakartaSans(
                     fontSize: 36, fontWeight: FontWeight.w900, color: scoreColor)),
+            const SizedBox(height: 2),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.verified_rounded, size: 12, color: Colors.grey.shade400),
+              const SizedBox(width: 4),
+              Text('Pondérée par les coefficients\nofficiels de ta série',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9.5, color: Colors.grey.shade400, height: 1.25)),
+            ]),
           ]),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

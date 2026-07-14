@@ -22,6 +22,12 @@ int _toInt(dynamic v) {
   return int.tryParse(v.toString()) ?? 0;
 }
 
+/// Formate un coefficient : « 1,5 » pour les décimaux, « 3 » pour les entiers.
+String _fmtCoef(dynamic v) {
+  final d = _toDouble(v);
+  return d == d.roundToDouble() ? d.toInt().toString() : d.toStringAsFixed(1).replaceAll('.', ',');
+}
+
 class MockExamPage extends StatefulWidget {
   const MockExamPage({super.key});
   @override
@@ -824,7 +830,11 @@ class _ResultPage extends StatelessWidget {
     final worst = scores.isEmpty ? null : scores.reduce((a, b) =>
         _toDouble(a['net']) <= _toDouble(b['net']) ? a : b);
 
-    final isPositive = totalNet >= 0;
+    // Note /20 pondérée par les coefficients officiels (barème DEF/BAC)
+    final grade20 = result['diploma_grade'] != null ? _toDouble(result['diploma_grade']) : null;
+    final hasGrade = grade20 != null && scores.any((s) => s['coefficient'] != null);
+
+    final isPositive = hasGrade ? grade20 >= 10 : totalNet >= 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
@@ -860,12 +870,38 @@ class _ResultPage extends StatelessWidget {
                       const SizedBox(width: 48),
                     ]),
                     const SizedBox(height: 24),
-                    // Score géant
-                    Text(totalNet.toStringAsFixed(2),
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: 64, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
-                    Text('points nets au total',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.white70)),
+                    // ── Note géante : /20 pondérée si disponible, sinon points nets ──
+                    if (hasGrade) ...[
+                      Row(mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(grade20.toStringAsFixed(2),
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 64, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8, left: 4),
+                          child: Text('/20',
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 22, fontWeight: FontWeight.w800,
+                                  color: Colors.white.withValues(alpha: 0.7))),
+                        ),
+                      ]),
+                      const SizedBox(height: 6),
+                      Text('Moyenne pondérée par les coefficients officiels',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.white70)),
+                      Text('(barème DEF/BAC de ta série)',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white54)),
+                      const SizedBox(height: 10),
+                      Text('Score net total : ${totalNet.toStringAsFixed(2)} pts',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12, fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.75))),
+                    ] else ...[
+                      Text(totalNet.toStringAsFixed(2),
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 64, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
+                      Text('points nets au total',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.white70)),
+                    ],
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -873,7 +909,10 @@ class _ResultPage extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(isPositive ? '🎉 Bravo, score positif !' : '📚 Continue à travailler !',
+                      child: Text(
+                          hasGrade
+                              ? (grade20 >= 10 ? '🎉 Admis ! Moyenne ≥ 10/20' : '📚 En dessous de la moyenne — courage !')
+                              : (isPositive ? '🎉 Bravo, score positif !' : '📚 Continue à travailler !'),
                           style: GoogleFonts.plusJakartaSans(
                               fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
                     ),
@@ -999,12 +1038,45 @@ class _SubjectResultCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text(name, style: GoogleFonts.plusJakartaSans(
-              fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy))),
-          Text(net.toStringAsFixed(2), style: GoogleFonts.plusJakartaSans(
-              fontSize: 24, fontWeight: FontWeight.w900, color: barColor)),
-          const SizedBox(width: 4),
-          Text('pts', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.navy)),
+              if (score['coefficient'] != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDFAFB),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'coefficient ${_fmtCoef(score['coefficient'])}',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF0C6B76)),
+                  ),
+                ),
+            ]),
+          ),
+          // Note /20 si coefficients officiels, sinon points nets
+          if (score['note_20'] != null)
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(_toDouble(score['note_20']).toStringAsFixed(1),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 24, fontWeight: FontWeight.w900, color: barColor)),
+                Text('/20', style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+              ]),
+              Text('${net.toStringAsFixed(2)} pts nets',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+            ])
+          else ...[
+            Text(net.toStringAsFixed(2), style: GoogleFonts.plusJakartaSans(
+                fontSize: 24, fontWeight: FontWeight.w900, color: barColor)),
+            const SizedBox(width: 4),
+            Text('pts', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+          ],
         ]),
         const SizedBox(height: 10),
         // Stats visuelles

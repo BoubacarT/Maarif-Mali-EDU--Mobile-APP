@@ -162,6 +162,18 @@ class _ProfileContent extends StatelessWidget {
             child: _StatsBar(stats: stats!),
           )),
 
+        // ── Programme officiel de la série ───────────────────────────
+        if (profile.subjects.isNotEmpty) ...[
+          SliverToBoxAdapter(child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+            child: _SectionTitle(label: 'Mon programme officiel', icon: Icons.menu_book_rounded),
+          )),
+          SliverToBoxAdapter(child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: _ProgramCard(profile: profile),
+          )),
+        ],
+
         // ── Infos compte ─────────────────────────────────────────────
         SliverToBoxAdapter(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -877,6 +889,138 @@ class _ErrorView extends StatelessWidget {
           ),
         ]),
       ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// PROGRAMME OFFICIEL DE LA SÉRIE (barème Maarif 2025-2026)
+// ════════════════════════════════════════════════════════════
+class _ProgramCard extends StatelessWidget {
+  const _ProgramCard({required this.profile});
+  final StudentProfile profile;
+
+  Color _parseColor(String? hex) {
+    if (hex == null || hex.isEmpty) return const Color(0xFF12A5B4);
+    final h = hex.replaceAll('#', '');
+    return Color(int.tryParse('FF$h', radix: 16) ?? 0xFF12A5B4);
+  }
+
+  String _fmtCoef(dynamic v) {
+    final d = (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0;
+    return d == d.roundToDouble()
+        ? d.toInt().toString()
+        : d.toStringAsFixed(1).replaceAll('.', ',');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final withCoef =
+        profile.subjects.where((s) => s['coefficient'] != null).toList();
+    final maxCoef = withCoef.isEmpty
+        ? 1.0
+        : withCoef
+            .map((s) => (s['coefficient'] as num).toDouble())
+            .reduce((a, b) => a > b ? a : b);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(
+              profile.level?['name']?.toString() ?? 'Ma classe',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF11284A)),
+            ),
+          ),
+          if (profile.totalCoefficient > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDFAFB),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Total coef ${_fmtCoef(profile.totalCoefficient)}',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0C6B76)),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 4),
+        Text(
+          'Coefficients du programme officiel malien — concentre-toi sur les plus élevés !',
+          style: GoogleFonts.plusJakartaSans(
+              fontSize: 11, color: Colors.grey.shade500),
+        ),
+        const SizedBox(height: 14),
+        ...withCoef.map((s) {
+          final coef = (s['coefficient'] as num).toDouble();
+          final color = _parseColor(s['color']?.toString());
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 5,
+                child: Text(
+                  s['name']?.toString() ?? '',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: coef / maxCoef,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey.shade100,
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  'coef ${_fmtCoef(coef)}',
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0C6B76)),
+                ),
+              ),
+            ]),
+          );
+        }),
+      ]),
     );
   }
 }

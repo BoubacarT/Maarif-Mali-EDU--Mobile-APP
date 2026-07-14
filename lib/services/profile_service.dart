@@ -46,6 +46,10 @@ class StudentProfile {
   final String? dateNaissance;
   final Map<String, dynamic>? level;
 
+  /// Matières de la série avec coefficients officiels (barème Maarif 2025-2026)
+  final List<Map<String, dynamic>> subjects;
+  final double totalCoefficient;
+
   StudentProfile({
     required this.id,
     required this.name,
@@ -55,6 +59,8 @@ class StudentProfile {
     required this.adresse,
     required this.dateNaissance,
     required this.level,
+    this.subjects = const [],
+    this.totalCoefficient = 0,
   });
 
   static StudentProfile fromJson(Map<String, dynamic> json) {
@@ -67,6 +73,11 @@ class StudentProfile {
       adresse: json['adresse']?.toString(),
       dateNaissance: json['date_naissance']?.toString(),
       level: json['level'] as Map<String, dynamic>?,
+      subjects: (json['subjects'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const [],
+      totalCoefficient: (json['total_coefficient'] as num?)?.toDouble() ?? 0,
     );
   }
 }
