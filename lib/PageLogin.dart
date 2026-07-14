@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:maarif_learn/HomePage.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:maarif_learn/config/api_config.dart';
 import 'package:maarif_learn/services/auth_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 import 'package:maarif_learn/widgets/maarif_brand_title.dart';
@@ -394,6 +397,20 @@ class _LoginCard extends StatelessWidget {
                 validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
                 onSaved: onPasswordSaved,
               ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _showForgotPasswordSheet(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text('Mot de passe oublié ?',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.teal)),
+                ),
+              ),
               if (errorMessage != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -487,4 +504,149 @@ class _LoginCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════
+// MOT DE PASSE OUBLIÉ
+// ════════════════════════════════════════════════════════════
+void _showForgotPasswordSheet(BuildContext context) {
+  final emailCtrl = TextEditingController();
+  bool sending = false;
+  String? feedback;
+  bool success = false;
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setSheet) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 44, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.teal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.lock_reset_rounded, color: AppColors.teal, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Mot de passe oublié',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                    Text('Nous t\'enverrons un lien de réinitialisation par e-mail.',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 20),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !success,
+                style: GoogleFonts.plusJakartaSans(),
+                decoration: InputDecoration(
+                  labelText: 'Adresse e-mail',
+                  hintText: 'nom@exemple.com',
+                  prefixIcon: const Icon(Icons.alternate_email_rounded, color: AppColors.teal),
+                ),
+              ),
+              if (feedback != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: success ? const Color(0xFFECFDF5) : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: success ? const Color(0xFF6EE7B7) : Colors.red.shade100),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(success ? Icons.mark_email_read_rounded : Icons.error_outline_rounded,
+                        color: success ? const Color(0xFF059669) : Colors.red.shade700, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(feedback!,
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.5, height: 1.4,
+                            color: success ? const Color(0xFF065F46) : Colors.red.shade700))),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: (sending || success)
+                    ? (success ? () => Navigator.pop(ctx) : null)
+                    : () async {
+                        final email = emailCtrl.text.trim();
+                        if (email.isEmpty || !email.contains('@')) {
+                          setSheet(() { feedback = 'Entre une adresse e-mail valide.'; success = false; });
+                          return;
+                        }
+                        setSheet(() { sending = true; feedback = null; });
+                        try {
+                          final res = await http.post(
+                            Uri.parse(ApiConfig.url('/password/forgot')),
+                            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                            body: jsonEncode({'email': email}),
+                          );
+                          final body = jsonDecode(res.body) as Map<String, dynamic>;
+                          setSheet(() {
+                            sending = false;
+                            if (res.statusCode == 200) {
+                              success = true;
+                              feedback = (body['message'] ?? 'Lien envoyé ! Vérifie ta boîte mail (et les spams).').toString();
+                            } else if (res.statusCode == 429) {
+                              feedback = 'Trop de tentatives. Réessaie dans une minute.';
+                            } else {
+                              feedback = (body['message'] ?? 'Une erreur est survenue.').toString();
+                            }
+                          });
+                        } catch (_) {
+                          setSheet(() {
+                            sending = false;
+                            feedback = 'Impossible de joindre le serveur. Vérifie ta connexion.';
+                          });
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: sending
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                    : Text(success ? 'Fermer' : 'Envoyer le lien',
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
