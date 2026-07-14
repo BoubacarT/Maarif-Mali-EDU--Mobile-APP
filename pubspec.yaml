@@ -43,6 +43,7 @@ dependencies:
   video_player: ^2.10.0
   syncfusion_flutter_pdfviewer: ^33.2.13
   device_preview: ^1.2.0
+  local_auth: ^2.3.0
 
 dev_dependencies:
   flutter_test:

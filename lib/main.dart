@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
-import 'package:maarif_learn/PageLogin.dart';
+import 'package:maarif_learn/SplashGate.dart';
 import 'package:maarif_learn/theme/app_theme.dart';
 
 void main() {
@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'MaarifMaliEdu',
       theme: AppTheme.light(),
-      home: const Pagelogin(),
+      home: const SplashGate(),
       locale: DevicePreview.locale(context),
       builder: DevicePreview.appBuilder,
     );

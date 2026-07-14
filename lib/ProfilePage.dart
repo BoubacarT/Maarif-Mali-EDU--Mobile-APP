@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:maarif_learn/config/api_config.dart';
+import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
+import 'package:maarif_learn/services/biometric_service.dart';
 import 'package:maarif_learn/services/profile_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 
@@ -89,7 +91,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (confirm == true && mounted) {
       await AuthStorage.clear();
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const Pagelogin()),
+          (_) => false,
+        );
       }
     }
   }
@@ -592,6 +597,11 @@ class _ActionCard extends StatelessWidget {
           padding: const EdgeInsets.only(left: 68),
           child: Divider(height: 1, color: Colors.grey.shade100),
         ),
+        const _BiometricRow(),
+        Padding(
+          padding: const EdgeInsets.only(left: 68),
+          child: Divider(height: 1, color: Colors.grey.shade100),
+        ),
         _ActionRow(
           icon: Icons.logout_rounded,
           label: 'Se déconnecter',
@@ -1020,6 +1030,100 @@ class _ProgramCard extends StatelessWidget {
             ]),
           );
         }),
+      ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// LIGNE VERROU BIOMÉTRIQUE (Face ID / Empreinte)
+// ════════════════════════════════════════════════════════════
+class _BiometricRow extends StatefulWidget {
+  const _BiometricRow();
+
+  @override
+  State<_BiometricRow> createState() => _BiometricRowState();
+}
+
+class _BiometricRowState extends State<_BiometricRow> {
+  bool _available = false;
+  bool _enabled = false;
+  String _label = 'Biométrie';
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final available = await BiometricService.isAvailable();
+    final enabled = await BiometricService.isEnabled();
+    final label = available ? await BiometricService.label() : 'Biométrie';
+    if (mounted) {
+      setState(() {
+        _available = available;
+        _enabled = enabled;
+        _label = label;
+      });
+    }
+  }
+
+  Future<void> _toggle(bool value) async {
+    if (value) {
+      // Vérifier la biométrie avant d'activer (preuve que ça fonctionne)
+      final ok = await BiometricService.authenticate(
+          reason: 'Confirme ton identité pour activer $_label');
+      if (!ok) return;
+    }
+    await BiometricService.setEnabled(value);
+    if (mounted) {
+      setState(() => _enabled = value);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: value ? const Color(0xFF059669) : AppColors.navy,
+        content: Text(
+          value
+              ? '$_label activé — l\'app sera verrouillée au démarrage.'
+              : 'Verrou biométrique désactivé.',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+        ),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_available) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.teal.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.fingerprint_rounded, color: AppColors.teal, size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Connexion $_label',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text('Déverrouiller l\'app sans saisir le mot de passe',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5, color: AppColors.textSecondary)),
+          ]),
+        ),
+        Switch.adaptive(
+          value: _enabled,
+          activeThumbColor: AppColors.teal,
+          onChanged: _toggle,
+        ),
       ]),
     );
   }
