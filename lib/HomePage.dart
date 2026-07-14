@@ -12,6 +12,8 @@ import 'package:maarif_learn/services/auth_service.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/course_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
+import 'package:maarif_learn/widgets/offline_banner.dart';
+import 'package:maarif_learn/widgets/whats_new_sheet.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -28,6 +30,8 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
   String? _subjectsError;
   List<dynamic> _arifRecos = [];
   int _unreadArif = 0;
+  bool _offline = false;
+  String? _offlineAge;
   late AnimationController _navAnim;
 
   @override
@@ -38,6 +42,9 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
     _loadUser();
     _loadSubjects();
     _loadArifRecos();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) WhatsNew.maybeShow(context);
+    });
   }
 
   @override
@@ -59,7 +66,15 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
     }
     try {
       final list = await CourseService.getSubjects(token);
-      if (mounted) setState(() { _subjects = list; _subjectsLoading = false; _subjectsError = null; });
+      if (mounted) {
+        setState(() {
+          _subjects = list;
+          _subjectsLoading = false;
+          _subjectsError = null;
+          _offline = CourseService.offline;
+          _offlineAge = CourseService.offlineAge;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _subjectsLoading = false; _subjectsError = e.toString(); });
     }
@@ -128,6 +143,11 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
                     arifRecos: _arifRecos,
                     onOpenArif: () => _switchTab(3),
                     onRetry: _loadSubjects,
+                    onRefresh: () async {
+                      await Future.wait([_loadUser(), _loadSubjects(), _loadArifRecos()]);
+                    },
+                    offline: _offline,
+                    offlineAge: _offlineAge,
                     onOpenSubject: (s) => Navigator.push(
                       context,
                       PageRouteBuilder(
@@ -317,6 +337,9 @@ class _SubjectsTab extends StatelessWidget {
     required this.onOpenArif,
     required this.onRetry,
     required this.onOpenSubject,
+    required this.onRefresh,
+    this.offline = false,
+    this.offlineAge,
   });
 
   final String userName;
@@ -327,12 +350,24 @@ class _SubjectsTab extends StatelessWidget {
   final VoidCallback onOpenArif;
   final VoidCallback onRetry;
   final void Function(SubjectItem) onOpenSubject;
+  final Future<void> Function() onRefresh;
+  final bool offline;
+  final String? offlineAge;
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: () async {
+        HapticFeedback.lightImpact();
+        await onRefresh();
+      },
+      child: CustomScrollView(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
+        if (offline)
+          SliverToBoxAdapter(child: OfflineBanner(ageLabel: offlineAge, onRetry: onRetry)),
+
         // ARIF recommendation block
         if (arifRecos.isNotEmpty)
           SliverPadding(
@@ -448,6 +483,7 @@ class _SubjectsTab extends StatelessWidget {
             ),
           ),
       ],
+      ),
     );
   }
 }

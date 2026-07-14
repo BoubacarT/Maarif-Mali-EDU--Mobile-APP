@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:maarif_learn/LessonProgressPage.dart';
@@ -14,6 +15,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:maarif_learn/widgets/web_video_player.dart';
 import 'package:maarif_learn/widgets/video_thumbnail.dart';
+import 'package:maarif_learn/widgets/offline_banner.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -30,6 +32,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   CourseDetail? _course;
   bool _loading = true;
   String? _error;
+  bool _offline = false;
+  String? _offlineAge;
   String? _token;
   bool _compactHeader = false;
 
@@ -56,6 +60,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           _token = token;
           _loading = false;
           _error = null;
+          _offline = CourseService.offline;
+          _offlineAge = CourseService.offlineAge;
         });
       }
     } on CourseException catch (e) {
@@ -177,6 +183,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       ),
       body: Column(
         children: [
+          if (_offline)
+            OfflineBanner(ageLabel: _offlineAge, onRetry: () { setState(() => _loading = true); _loadCourse(); }),
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
@@ -1258,6 +1266,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         onTap: answered
             ? null
             : () {
+                if (option.isCorrect) {
+                  HapticFeedback.mediumImpact();
+                } else {
+                  HapticFeedback.heavyImpact();
+                }
                 setState(() {
                   _selectedOptionByQuestionId[question.id] = option.id;
                 });

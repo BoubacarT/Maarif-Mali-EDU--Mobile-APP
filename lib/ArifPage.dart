@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:maarif_learn/services/arif_service.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
@@ -383,6 +384,7 @@ class _ChatTabState extends State<_ChatTab> {
   Future<void> _send([String? preset]) async {
     final text = preset ?? _ctrl.text.trim();
     if (text.isEmpty || _conversationId == null || _sending) return;
+    HapticFeedback.lightImpact();
     _ctrl.clear();
     _focusNode.unfocus();
 
@@ -395,6 +397,7 @@ class _ChatTabState extends State<_ChatTab> {
     try {
       final res   = await ArifService.sendMessage(_conversationId!, text, widget.token);
       final reply = res['reply'] as String? ?? '…';
+      HapticFeedback.selectionClick();
       if (mounted) {
         setState(() {
           _messages.add(_Msg(text: reply, isAi: true));
@@ -413,6 +416,50 @@ class _ChatTabState extends State<_ChatTab> {
         });
         _scrollDown();
       }
+    }
+  }
+
+  Future<void> _newConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Nouvelle conversation',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 17)),
+        content: Text(
+            'L\'historique actuel avec MAARIFA sera effacé. Repartir de zéro ?',
+            style: GoogleFonts.plusJakartaSans(fontSize: 13.5, height: 1.4)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Annuler', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary))),
+          FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: _kViolet,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Effacer', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() { _initializing = true; _messages.clear(); });
+    try {
+      final conv = await ArifService.createConversation('general', widget.token, fresh: true);
+      final data = conv['data'] as Map<String, dynamic>? ?? conv;
+      if (mounted) {
+        setState(() {
+          _conversationId = data['id'] as int?;
+          _initializing   = false;
+          _messages.add(const _Msg(
+            text: 'Nouvelle conversation ! Je suis **MAARIFA**, prête à t\'aider. Que veux-tu apprendre aujourd\'hui ? 🌟',
+            isAi: true,
+          ));
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _initializing = false);
     }
   }
 
@@ -439,17 +486,46 @@ class _ChatTabState extends State<_ChatTab> {
       Expanded(
         child: Container(
           color: const Color(0xFFF0EEFF),
-          child: ListView.builder(
-            controller: _scrollCtrl,
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
-            itemCount: _messages.length + (_sending ? 1 : 0),
-            itemBuilder: (_, i) {
-              if (_sending && i == _messages.length) {
-                return const _TypingBubble();
-              }
-              return _BubbleTile(msg: _messages[i]);
-            },
-          ),
+          child: Stack(children: [
+            ListView.builder(
+              controller: _scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+              itemCount: _messages.length + (_sending ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (_sending && i == _messages.length) {
+                  return const _TypingBubble();
+                }
+                return _BubbleTile(msg: _messages[i]);
+              },
+            ),
+            // Bouton « nouvelle conversation »
+            Positioned(
+              top: 8,
+              right: 10,
+              child: GestureDetector(
+                onTap: _newConversation,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _kViolet.withValues(alpha: 0.25)),
+                    boxShadow: [BoxShadow(
+                      color: _kViolet.withValues(alpha: 0.12),
+                      blurRadius: 8, offset: const Offset(0, 2),
+                    )],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.add_comment_rounded, size: 14, color: _kViolet),
+                    const SizedBox(width: 5),
+                    Text('Nouvelle',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11, fontWeight: FontWeight.w800, color: _kViolet)),
+                  ]),
+                ),
+              ),
+            ),
+          ]),
         ),
       ),
 
@@ -614,9 +690,23 @@ class _BubbleTile extends StatelessWidget {
             const SizedBox(width: 6),
           ],
 
-          // Bulle
+          // Bulle (appui long = copier)
           Flexible(
-            child: Container(
+            child: GestureDetector(
+              onLongPress: () {
+                HapticFeedback.mediumImpact();
+                Clipboard.setData(ClipboardData(
+                    text: msg.text.replaceAll(RegExp(r'\*\*'), '')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  backgroundColor: _kVioletDark,
+                  content: Text('Message copié 📋',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                ));
+              },
+              child: Container(
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.72,
               ),
@@ -674,6 +764,7 @@ class _BubbleTile extends StatelessWidget {
                     ],
                   ]),
                 ],
+              ),
               ),
             ),
           ),

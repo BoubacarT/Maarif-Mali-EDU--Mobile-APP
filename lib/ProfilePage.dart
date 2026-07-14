@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:maarif_learn/config/api_config.dart';
@@ -1077,6 +1078,7 @@ class _BiometricRowState extends State<_BiometricRow> {
       if (!ok) return;
     }
     await BiometricService.setEnabled(value);
+    HapticFeedback.mediumImpact();
     if (mounted) {
       setState(() => _enabled = value);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

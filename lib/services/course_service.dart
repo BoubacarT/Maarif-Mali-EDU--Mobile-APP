@@ -1,22 +1,45 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import 'cache_service.dart';
 
 class CourseService {
+  /// Indicateurs hors-ligne : renseignés après chaque appel.
+  /// true = les dernières données servies proviennent du cache local.
+  static bool offline = false;
+  static String? offlineAge;
+
+  static void _online() { offline = false; offlineAge = null; }
+  static void _fromCache(CachedEntry e) { offline = true; offlineAge = e.ageLabel; }
+
   /// Liste des matières pour l'étudiant (selon son niveau)
   static Future<List<SubjectItem>> getSubjects(String token) async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.subjectsUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    late http.Response response;
+    try {
+      response = await http.get(
+        Uri.parse(ApiConfig.subjectsUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      // Hors-ligne : ressert le cache si disponible
+      final cached = await CacheService.get('subjects');
+      if (cached != null) {
+        _fromCache(cached);
+        final data = cached.data as List<dynamic>? ?? [];
+        return data.map((e) => SubjectItem.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      throw CourseException('Pas de connexion internet et aucune donnée enregistrée.');
+    }
 
     if (response.statusCode == 200) {
+      _online();
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as List<dynamic>? ?? [];
+      await CacheService.put('subjects', data);
       return data.map((e) => SubjectItem.fromJson(e as Map<String, dynamic>)).toList();
     }
     if (response.statusCode == 401) {
@@ -36,25 +59,30 @@ class CourseService {
 
   /// Liste des cours d'une matière pour l'étudiant connecté
   static Future<CoursesBySubjectResponse> getCoursesBySubject(int subjectId, String token) async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.subjectCoursesUrl(subjectId)),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    late http.Response response;
+    try {
+      response = await http.get(
+        Uri.parse(ApiConfig.subjectCoursesUrl(subjectId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 12));
+    } catch (_) {
+      final cached = await CacheService.get('courses_$subjectId');
+      if (cached != null) {
+        _fromCache(cached);
+        return _parseCoursesResponse(Map<String, dynamic>.from(cached.data as Map));
+      }
+      throw CourseException('Pas de connexion internet et aucune donnée enregistrée.');
+    }
 
     if (response.statusCode == 200) {
+      _online();
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = json['data'] as List<dynamic>? ?? [];
-      final subject = json['subject'] as Map<String, dynamic>?;
-      final courses = data.map((e) => CourseItem.fromJson(e as Map<String, dynamic>)).toList();
-      SubjectRef? subjectRef;
-      if (subject != null) {
-        subjectRef = SubjectRef(id: subject['id'] as int, name: subject['name'] as String);
-      }
-      return CoursesBySubjectResponse(courses: courses, subject: subjectRef);
+      await CacheService.put('courses_$subjectId', json);
+      return _parseCoursesResponse(json);
     }
     if (response.statusCode == 404) {
       final j = response.body.isNotEmpty ? jsonDecode(response.body) as Map<String, dynamic>? : null;
@@ -75,19 +103,43 @@ class CourseService {
     throw CourseException(message, response.statusCode);
   }
 
+  static CoursesBySubjectResponse _parseCoursesResponse(Map<String, dynamic> json) {
+    final data = json['data'] as List<dynamic>? ?? [];
+    final subject = json['subject'] as Map<String, dynamic>?;
+    final courses = data.map((e) => CourseItem.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    SubjectRef? subjectRef;
+    if (subject != null) {
+      subjectRef = SubjectRef(id: subject['id'] as int, name: subject['name'] as String);
+    }
+    return CoursesBySubjectResponse(courses: courses, subject: subjectRef);
+  }
+
   /// Détail d'un cours (vidéos, exercices, quiz) avec Bearer token
   static Future<CourseDetail> getCourseDetail(int courseId, String token) async {
-    final response = await http.get(
-      Uri.parse(ApiConfig.courseUrl(courseId)),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    late http.Response response;
+    try {
+      response = await http.get(
+        Uri.parse(ApiConfig.courseUrl(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+    } catch (_) {
+      // Cours consulté récemment → disponible hors-ligne
+      final cached = await CacheService.get('course_$courseId');
+      if (cached != null) {
+        _fromCache(cached);
+        return CourseDetail.fromJson(Map<String, dynamic>.from(cached.data as Map));
+      }
+      throw CourseException('Pas de connexion internet. Ce cours n\'a pas encore été consulté en ligne.');
+    }
 
     if (response.statusCode == 200) {
+      _online();
       final json = jsonDecode(response.body) as Map<String, dynamic>;
+      await CacheService.put('course_$courseId', json);
       return CourseDetail.fromJson(json);
     }
     if (response.statusCode == 401) {

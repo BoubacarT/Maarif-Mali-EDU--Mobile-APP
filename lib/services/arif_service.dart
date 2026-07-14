@@ -21,11 +21,15 @@ class ArifService {
   }
 
   static Future<Map<String, dynamic>> createConversation(String contextType, String token,
-      {int? contextId}) async {
+      {int? contextId, bool fresh = false}) async {
     final res = await http.post(
       Uri.parse(ApiConfig.arifConversationsUrl),
       headers: _headers(token),
-      body: jsonEncode({'context_type': contextType, if (contextId != null) 'context_id': contextId}),
+      body: jsonEncode({
+        'context_type': contextType,
+        if (contextId != null) 'context_id': contextId,
+        if (fresh) 'fresh': true,
+      }),
     );
     final body = jsonDecode(res.body);
     if (res.statusCode == 200 || res.statusCode == 201) return body;

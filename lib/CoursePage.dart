@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:maarif_learn/widgets/offline_banner.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:maarif_learn/CourseDetailPage.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
@@ -19,6 +21,8 @@ class _CoursepageState extends State<Coursepage> {
   List<CourseItem> _courses = [];
   bool _loading = true;
   String? _error;
+  bool _offline = false;
+  String? _offlineAge;
 
   @override
   void initState() {
@@ -34,7 +38,15 @@ class _CoursepageState extends State<Coursepage> {
     }
     try {
       final res = await CourseService.getCoursesBySubject(widget.subjectId, token);
-      if (mounted) setState(() { _courses = res.courses; _loading = false; _error = null; });
+      if (mounted) {
+        setState(() {
+          _courses = res.courses;
+          _loading = false;
+          _error = null;
+          _offline = CourseService.offline;
+          _offlineAge = CourseService.offlineAge;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() { _loading = false; _error = e.toString(); });
     }
@@ -61,11 +73,22 @@ class _CoursepageState extends State<Coursepage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+      body: RefreshIndicator(
+        color: AppColors.teal,
+        onRefresh: () async {
+          HapticFeedback.lightImpact();
+          await _loadCourses();
+        },
+        child: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
           // ── Header hero avec courbe ──────────────────────────────────
           SliverToBoxAdapter(child: _CoursePageHeader(subjectName: widget.subjectName)),
+
+          if (_offline)
+            SliverToBoxAdapter(
+              child: OfflineBanner(ageLabel: _offlineAge, onRetry: _loadCourses),
+            ),
 
           // ── Contenu ──────────────────────────────────────────────────
           if (_loading)
@@ -152,6 +175,7 @@ class _CoursepageState extends State<Coursepage> {
             ),
           ],
         ],
+        ),
       ),
     );
   }

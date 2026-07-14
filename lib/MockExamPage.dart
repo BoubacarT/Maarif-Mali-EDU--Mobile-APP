@@ -99,8 +99,16 @@ class _MockExamPageState extends State<MockExamPage> with SingleTickerProviderSt
                   : TabBarView(
                       controller: _tabs,
                       children: [
-                        _TemplatesTab(templates: _templates, token: _token!, onSubmitted: _load),
-                        _SessionsTab(sessions: _sessions),
+                        RefreshIndicator(
+                          color: _kAmber,
+                          onRefresh: () async { HapticFeedback.lightImpact(); await _load(); },
+                          child: _TemplatesTab(templates: _templates, token: _token!, onSubmitted: _load),
+                        ),
+                        RefreshIndicator(
+                          color: _kAmber,
+                          onRefresh: () async { HapticFeedback.lightImpact(); await _load(); },
+                          child: _SessionsTab(sessions: _sessions),
+                        ),
                       ],
                     ),
         ),
@@ -213,8 +221,11 @@ class _TemplatesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (templates.isEmpty) {
-      return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 120),
+          Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: _kAmberLight, shape: BoxShape.circle),
@@ -227,14 +238,15 @@ class _TemplatesTab extends StatelessWidget {
           const SizedBox(height: 6),
           Text('Ton professeur n\'a pas encore créé d\'examen.',
               style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 12)),
-        ]),
+          ]),
+        ],
       );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
       itemCount: templates.length,
-      physics: const BouncingScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       itemBuilder: (context, i) {
         final t = templates[i] as Map<String, dynamic>;
         final subjects = (t['subjects'] as List?)?.cast<Map<String, dynamic>>() ?? [];
@@ -521,6 +533,7 @@ class _ExamFormPageState extends State<_ExamFormPage> {
       final date = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
       final res = await MockExamService.submitSession(
           widget.template['id'] as int, subjectScores, date, widget.token);
+      HapticFeedback.mediumImpact();
       if (mounted) setState(() { _submitting = false; _result = res; });
     } catch (e) {
       if (mounted) setState(() { _submitting = false; _error = e.toString(); });
@@ -1137,8 +1150,11 @@ class _SessionsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (sessions.isEmpty) {
-      return Center(
-        child: Padding(
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 100),
+          Padding(
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
@@ -1156,13 +1172,14 @@ class _SessionsTab extends StatelessWidget {
                     fontSize: 12, color: AppColors.textSecondary, height: 1.5),
                 textAlign: TextAlign.center),
           ]),
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-      physics: const BouncingScrollPhysics(),
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       itemCount: sessions.length,
       itemBuilder: (context, i) {
         final s = sessions[i] as Map<String, dynamic>;
