@@ -6,6 +6,7 @@ import 'package:maarif_learn/CoursePage.dart';
 import 'package:maarif_learn/MockExamPage.dart';
 import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/ProfilePage.dart';
+import 'package:maarif_learn/SearchPage.dart';
 import 'package:maarif_learn/StudyPlanPage.dart';
 import 'package:maarif_learn/services/arif_service.dart';
 import 'package:maarif_learn/services/auth_service.dart';
@@ -14,15 +15,19 @@ import 'package:maarif_learn/services/course_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 import 'package:maarif_learn/widgets/offline_banner.dart';
 import 'package:maarif_learn/widgets/whats_new_sheet.dart';
+import 'package:maarif_learn/widgets/exam_countdown_card.dart';
+import 'package:maarif_learn/widgets/update_banner.dart';
 
 class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+  const Homepage({super.key, this.initialTab = 0});
+  /// Onglet ouvert au démarrage (3 = MAARIFA, utilisé par le deep-link push).
+  final int initialTab;
   @override
   State<Homepage> createState() => _HomepageState();
 }
 
 class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin {
-  int _currentIndex = 0;
+  late int _currentIndex = widget.initialTab;
   Map<String, dynamic>? _user;
   bool _userLoading = true;
   List<SubjectItem> _subjects = [];
@@ -108,7 +113,7 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
     final firstName = name.split(' ').first;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
       body: Column(
         children: [
@@ -148,6 +153,7 @@ class _HomepageState extends State<Homepage> with SingleTickerProviderStateMixin
                     },
                     offline: _offline,
                     offlineAge: _offlineAge,
+                    levelName: level,
                     onOpenSubject: (s) => Navigator.push(
                       context,
                       PageRouteBuilder(
@@ -340,6 +346,7 @@ class _SubjectsTab extends StatelessWidget {
     required this.onRefresh,
     this.offline = false,
     this.offlineAge,
+    this.levelName = '',
   });
 
   final String userName;
@@ -353,6 +360,7 @@ class _SubjectsTab extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final bool offline;
   final String? offlineAge;
+  final String levelName;
 
   @override
   Widget build(BuildContext context) {
@@ -367,6 +375,12 @@ class _SubjectsTab extends StatelessWidget {
       slivers: [
         if (offline)
           SliverToBoxAdapter(child: OfflineBanner(ageLabel: offlineAge, onRetry: onRetry)),
+
+        // Mise à jour disponible ?
+        const SliverToBoxAdapter(child: UpdateBanner()),
+
+        // Compte à rebours DEF/BAC
+        SliverToBoxAdapter(child: ExamCountdownCard(levelName: levelName)),
 
         // ARIF recommendation block
         if (arifRecos.isNotEmpty)
@@ -386,6 +400,20 @@ class _SubjectsTab extends StatelessWidget {
                 Text('Mes matières',
                     style: GoogleFonts.plusJakartaSans(
                         fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.navy)),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => const SearchPage())),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Icon(Icons.search_rounded, size: 18, color: AppColors.navy.withValues(alpha: 0.7)),
+                  ),
+                ),
                 const Spacer(),
                 if (!loading && subjects.isNotEmpty)
                   Container(

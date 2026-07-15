@@ -109,4 +109,61 @@ class AppTheme {
       ),
     );
   }
+
+  /// Thème sombre — première passe : fonds sombres, textes clairs.
+  static ThemeData dark() {
+    const bg = Color(0xFF0B1120);
+    const card = Color(0xFF16213A);
+
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.teal,
+        brightness: Brightness.dark,
+        primary: AppColors.teal,
+        secondary: AppColors.teal,
+        surface: card,
+      ),
+    );
+
+    final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme);
+
+    return base.copyWith(
+      scaffoldBackgroundColor: bg,
+      textTheme: textTheme,
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        backgroundColor: const Color(0xFF060B16),
+        foregroundColor: Colors.white,
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: card,
+        clipBehavior: Clip.antiAlias,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: card,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF243250)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF243250)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.teal, width: 2),
+        ),
+      ),
+    );
+  }
 }

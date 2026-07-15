@@ -8,6 +8,9 @@ import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/biometric_service.dart';
 import 'package:maarif_learn/services/profile_service.dart';
+import 'package:maarif_learn/services/reminder_service.dart';
+import 'package:maarif_learn/services/download_service.dart';
+import 'package:maarif_learn/theme/theme_controller.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -576,13 +579,17 @@ class _ActionCard extends StatelessWidget {
         ],
       ),
       child: Column(children: [
-        _ActionRow(
-          icon: Icons.notifications_rounded,
-          label: 'Notifications',
-          sublabel: 'Gérer mes alertes d\'apprentissage',
-          iconColor: const Color(0xFF7C3AED),
-          onTap: () {},
+        const _ReminderRow(),
+        Padding(
+          padding: const EdgeInsets.only(left: 68),
+          child: Divider(height: 1, color: Colors.grey.shade100),
         ),
+        const _StorageRow(),
+        Padding(
+          padding: const EdgeInsets.only(left: 68),
+          child: Divider(height: 1, color: Colors.grey.shade100),
+        ),
+        const _DarkModeRow(),
         Padding(
           padding: const EdgeInsets.only(left: 68),
           child: Divider(height: 1, color: Colors.grey.shade100),
@@ -1125,6 +1132,248 @@ class _BiometricRowState extends State<_BiometricRow> {
           value: _enabled,
           activeThumbColor: AppColors.teal,
           onChanged: _toggle,
+        ),
+      ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// LIGNE RAPPEL QUOTIDIEN DE RÉVISION (notification locale)
+// ════════════════════════════════════════════════════════════
+class _ReminderRow extends StatefulWidget {
+  const _ReminderRow();
+
+  @override
+  State<_ReminderRow> createState() => _ReminderRowState();
+}
+
+class _ReminderRowState extends State<_ReminderRow> {
+  bool _enabled = false;
+  int _hour = 18;
+  int _minute = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final enabled = await ReminderService.isEnabled();
+    final t = await ReminderService.time();
+    if (mounted) setState(() { _enabled = enabled; _hour = t.$1; _minute = t.$2; });
+  }
+
+  String get _timeLabel =>
+      '${_hour.toString().padLeft(2, '0')}h${_minute.toString().padLeft(2, '0')}';
+
+  Future<void> _toggle(bool value) async {
+    if (value) {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: _hour, minute: _minute),
+        helpText: 'Heure du rappel quotidien',
+      );
+      if (picked == null) return;
+      final ok = await ReminderService.enable(picked.hour, picked.minute);
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          backgroundColor: Colors.red.shade600,
+          content: Text('Notifications refusées — active-les dans les réglages du téléphone.',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+        ));
+        return;
+      }
+      setState(() { _enabled = true; _hour = picked.hour; _minute = picked.minute; });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: const Color(0xFF059669),
+        content: Text('Rappel activé — tous les jours à $_timeLabel 📖',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+      ));
+    } else {
+      await ReminderService.disable();
+      HapticFeedback.mediumImpact();
+      if (mounted) setState(() => _enabled = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.alarm_rounded, color: Color(0xFF7C3AED), size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Rappel de révision',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(
+                _enabled
+                    ? 'Tous les jours à $_timeLabel — même hors-ligne'
+                    : 'Une notification quotidienne pour réviser',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5, color: AppColors.textSecondary)),
+          ]),
+        ),
+        Switch.adaptive(
+          value: _enabled,
+          activeThumbColor: const Color(0xFF7C3AED),
+          onChanged: _toggle,
+        ),
+      ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// LIGNE STOCKAGE HORS-LIGNE (cours téléchargés)
+// ════════════════════════════════════════════════════════════
+class _StorageRow extends StatefulWidget {
+  const _StorageRow();
+
+  @override
+  State<_StorageRow> createState() => _StorageRowState();
+}
+
+class _StorageRowState extends State<_StorageRow> {
+  int _courses = 0;
+  int _bytes = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final (courses, bytes) = await DownloadService.storageUsed();
+    if (mounted) setState(() { _courses = courses; _bytes = bytes; });
+  }
+
+  Future<void> _clear() async {
+    if (_courses == 0) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Tout supprimer ?',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16)),
+        content: Text(
+            '$_courses cours téléchargé(s) (${DownloadService.formatBytes(_bytes)}) seront supprimés du téléphone.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 13)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await DownloadService.clearAll();
+    HapticFeedback.mediumImpact();
+    _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.download_for_offline_rounded, color: Color(0xFF0EA5E9), size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Stockage hors-ligne',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(
+                _courses == 0
+                    ? 'Aucun cours téléchargé'
+                    : '$_courses cours · ${DownloadService.formatBytes(_bytes)}',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5, color: AppColors.textSecondary)),
+          ]),
+        ),
+        if (_courses > 0)
+          TextButton(
+            onPressed: _clear,
+            child: Text('Vider',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.red.shade600)),
+          ),
+      ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// LIGNE MODE SOMBRE
+// ════════════════════════════════════════════════════════════
+class _DarkModeRow extends StatefulWidget {
+  const _DarkModeRow();
+
+  @override
+  State<_DarkModeRow> createState() => _DarkModeRowState();
+}
+
+class _DarkModeRowState extends State<_DarkModeRow> {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF334155).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.dark_mode_rounded, color: Color(0xFF334155), size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Mode sombre',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text('Économise la batterie, repose les yeux',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5, color: AppColors.textSecondary)),
+          ]),
+        ),
+        Switch.adaptive(
+          value: ThemeController.isDark,
+          activeThumbColor: const Color(0xFF334155),
+          onChanged: (v) async {
+            HapticFeedback.selectionClick();
+            await ThemeController.setDark(v);
+            if (mounted) setState(() {});
+          },
         ),
       ]),
     );

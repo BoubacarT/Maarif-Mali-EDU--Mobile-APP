@@ -67,6 +67,13 @@ class ArifService {
     throw Exception(body['message'] ?? 'Erreur gamification');
   }
 
+  static Future<Map<String, dynamic>> getLeaderboard(String token) async {
+    final res = await http.get(Uri.parse(ApiConfig.url('/ai/leaderboard')), headers: _headers(token));
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 200) return body;
+    throw Exception(body['message'] ?? 'Erreur classement');
+  }
+
   static Future<Map<String, dynamic>> predictBac(String token) async {
     final res = await http.get(Uri.parse(ApiConfig.arifPredictBacUrl), headers: _headers(token));
     final body = jsonDecode(res.body);

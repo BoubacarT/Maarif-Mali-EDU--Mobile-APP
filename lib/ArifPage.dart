@@ -83,7 +83,7 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(children: [
         _MaarifaHeader(
           stats: _aiStats,
@@ -1045,6 +1045,35 @@ class _GamificationTab extends StatefulWidget {
 class _GamificationTabState extends State<_GamificationTab> {
   Map<String, dynamic>? _bac;
   bool _loadingBac = false;
+  List<Map<String, dynamic>> _leaderboard = [];
+  int? _myRank;
+  int _totalStudents = 0;
+  List<int> _week = List.filled(7, 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
+    if (widget.token == null) return;
+    try {
+      final res = await ArifService.getLeaderboard(widget.token!);
+      if (!mounted) return;
+      setState(() {
+        _leaderboard = ((res['leaderboard'] as List?) ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        _myRank = res['my_rank'] as int?;
+        _totalStudents = res['total_students'] as int? ?? 0;
+        _week = ((res['week_activity'] as List?) ?? [])
+            .map((e) => ((e as Map)['count'] as num? ?? 0).toInt())
+            .toList();
+        if (_week.length != 7) _week = List.filled(7, 0);
+      });
+    } catch (_) {}
+  }
 
   Future<void> _predictBac() async {
     if (widget.token == null) return;
@@ -1250,6 +1279,94 @@ class _GamificationTabState extends State<_GamificationTab> {
             )
           else
             _BacPredictionCard(bac: _bac!),
+
+          const SizedBox(height: 24),
+
+          // ── Activité de la semaine ─────────────────────────────────
+          Text('Mon activité cette semaine', style: GoogleFonts.plusJakartaSans(
+              fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF1A1A2E))),
+          const SizedBox(height: 12),
+          _WeekActivityChart(week: _week),
+
+          const SizedBox(height: 24),
+
+          // ── Classement de la classe ────────────────────────────────
+          Row(children: [
+            Text('Classement de ma classe', style: GoogleFonts.plusJakartaSans(
+                fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF1A1A2E))),
+            const Spacer(),
+            if (_myRank != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _kGold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('${_myRank}e / $_totalStudents',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12, fontWeight: FontWeight.w800, color: const Color(0xFFB45309))),
+              ),
+          ]),
+          const SizedBox(height: 12),
+          if (_leaderboard.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              child: Text('Le classement apparaîtra dès que ta classe gagnera des XP.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey.shade500)),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _kViolet.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                children: _leaderboard.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final row = entry.value;
+                  final isMe = row['is_me'] == true;
+                  final rank = row['rank'] as int? ?? i + 1;
+                  final medal = switch (rank) { 1 => '🥇', 2 => '🥈', 3 => '🥉', _ => null };
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isMe ? _kVioletLight : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    child: Row(children: [
+                      SizedBox(
+                        width: 30,
+                        child: medal != null
+                            ? Text(medal, style: const TextStyle(fontSize: 17))
+                            : Text('$rank', style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13, fontWeight: FontWeight.w800, color: Colors.grey.shade500)),
+                      ),
+                      Expanded(
+                        child: Text(row['name']?.toString() ?? '',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                fontWeight: isMe ? FontWeight.w800 : FontWeight.w600,
+                                color: isMe ? _kViolet : const Color(0xFF1A1A2E))),
+                      ),
+                      if ((row['streak_days'] as int? ?? 0) >= 3) ...[
+                        Text('🔥${row['streak_days']}',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.orange.shade700)),
+                        const SizedBox(width: 8),
+                      ],
+                      Text('${row['xp']} XP',
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5, fontWeight: FontWeight.w800, color: const Color(0xFFB45309))),
+                    ]),
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
@@ -1383,6 +1500,78 @@ class _MaarifaLoadingIndicatorState extends State<_MaarifaLoadingIndicator>
               color: Colors.white, size: widget.size * 0.5),
         ),
       ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// GRAPHIQUE ACTIVITÉ 7 JOURS (leçons + examens par jour)
+// ════════════════════════════════════════════════════════════
+class _WeekActivityChart extends StatelessWidget {
+  const _WeekActivityChart({required this.week});
+  final List<int> week; // 7 valeurs, du plus ancien à aujourd''hui
+
+  static const _dayLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+  @override
+  Widget build(BuildContext context) {
+    final maxV = week.fold<int>(0, (m, v) => v > m ? v : m);
+    final today = DateTime.now();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _kViolet.withValues(alpha: 0.15)),
+      ),
+      child: Column(children: [
+        SizedBox(
+          height: 90,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(7, (i) {
+              final v = i < week.length ? week[i] : 0;
+              final h = maxV == 0 ? 4.0 : (4 + 70 * v / maxV);
+              final isToday = i == 6;
+              return Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  if (v > 0)
+                    Text('$v', style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9, fontWeight: FontWeight.w700, color: _kViolet)),
+                  const SizedBox(height: 3),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 7),
+                    height: h,
+                    decoration: BoxDecoration(
+                      color: isToday ? _kViolet : _kViolet.withValues(alpha: v > 0 ? 0.45 : 0.12),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ]),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: List.generate(7, (i) {
+            final day = today.subtract(Duration(days: 6 - i));
+            final label = _dayLabels[(day.weekday - 1) % 7];
+            return Expanded(
+              child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: i == 6 ? FontWeight.w800 : FontWeight.w500,
+                      color: i == 6 ? _kViolet : Colors.grey.shade400)),
+            );
+          }),
+        ),
+        const SizedBox(height: 4),
+        Text('Leçons travaillées et examens blancs par jour',
+            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.grey.shade400)),
+      ]),
     );
   }
 }

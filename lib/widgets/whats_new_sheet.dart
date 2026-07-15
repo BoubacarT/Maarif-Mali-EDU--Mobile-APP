@@ -9,15 +9,15 @@ import 'package:maarif_learn/theme/app_colors.dart';
 /// À chaque nouvelle version : incrémenter [currentVersion] et mettre à jour
 /// la liste [_features].
 class WhatsNew {
-  static const currentVersion = '1.1.0';
+  static const currentVersion = '1.2.0';
   static const _prefsKey = 'maarif_seen_version';
 
   static const _features = [
-    ('🔄', 'Tire pour actualiser', 'Glisse vers le bas sur n\'importe quelle liste pour rafraîchir tes données.'),
+    ('🔔', 'Notifications MAARIFA', 'Les conseils de MAARIFA arrivent sur ton téléphone, même app fermée.'),
+    ('⏰', 'Rappel de révision', 'Active un rappel quotidien dans ton profil — il fonctionne même hors-ligne.'),
+    ('🎯', 'Compte à rebours DEF/BAC', 'Le nombre de jours avant ton examen, directement sur l\'accueil.'),
     ('📴', 'Mode hors-ligne', 'Tes cours consultés restent disponibles même sans connexion internet.'),
-    ('🔐', 'Face ID / Empreinte', 'Active le verrou biométrique dans ton profil : plus besoin de mot de passe.'),
     ('✨', 'MAARIFA améliorée', 'Appui long pour copier un message, bouton « Nouvelle » pour repartir de zéro.'),
-    ('🎓', 'Notes /20 officielles', 'Tes examens blancs sont notés avec les coefficients officiels DEF/BAC de ta série.'),
   ];
 
   /// Affiche la feuille si cette version n'a pas encore été vue.

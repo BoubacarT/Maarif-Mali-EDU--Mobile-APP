@@ -16,6 +16,8 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:maarif_learn/widgets/web_video_player.dart';
 import 'package:maarif_learn/widgets/video_thumbnail.dart';
 import 'package:maarif_learn/widgets/offline_banner.dart';
+import 'package:maarif_learn/services/download_service.dart';
+import 'dart:io' show File;
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -162,6 +164,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
+          if (!kIsWeb) _DownloadButton(course: course, token: _token ?? ''),
           IconButton(
             tooltip: 'Parcours adaptatif',
             icon: const Icon(Icons.route_rounded, color: Colors.white),
@@ -1611,7 +1614,11 @@ class _VideoPlayerPageState extends State<_VideoPlayerPage> {
 
   Future<void> _initMobilePlayer() async {
     try {
-      final c = VideoPlayerController.networkUrl(widget.uri, httpHeaders: widget.headers);
+      // Version téléchargée hors-ligne prioritaire
+      final local = await DownloadService.localFile(widget.uri.toString());
+      final c = local != null
+          ? VideoPlayerController.file(local)
+          : VideoPlayerController.networkUrl(widget.uri, httpHeaders: widget.headers);
       await c.initialize();
       await c.play();
       if (mounted) setState(() => _controller = c);
@@ -1743,6 +1750,20 @@ class _PdfViewerWidgetState extends State<_PdfViewerWidget> {
   int _totalPages = 0;
   bool _loaded = false;
   double _zoom = 1.0;
+  File? _localFile; // version téléchargée hors-ligne, si disponible
+  bool _localChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _localChecked = true;
+    } else {
+      DownloadService.localFile(widget.uri.toString()).then((f) {
+        if (mounted) setState(() { _localFile = f; _localChecked = true; });
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -1852,6 +1873,32 @@ class _PdfViewerWidgetState extends State<_PdfViewerWidget> {
                   ),
             child: Stack(
               children: [
+                if (!_localChecked)
+                  const SizedBox.shrink()
+                else if (_localFile != null)
+                  // Version téléchargée : lecture 100 % hors-ligne
+                  SfPdfViewer.file(
+                    _localFile!,
+                    controller: _pdfController,
+                    enableDoubleTapZooming: true,
+                    enableTextSelection: true,
+                    canShowScrollHead: !widget.compact,
+                    canShowScrollStatus: !widget.compact,
+                    canShowPaginationDialog: false,
+                    pageLayoutMode: PdfPageLayoutMode.continuous,
+                    onDocumentLoaded: (d) {
+                      if (mounted) {
+                        setState(() {
+                          _totalPages = d.document.pages.count;
+                          _loaded = true;
+                        });
+                      }
+                    },
+                    onPageChanged: (d) {
+                      if (mounted) setState(() => _currentPage = d.newPageNumber);
+                    },
+                  )
+                else
                 SfPdfViewer.network(
                   widget.uri.toString(),
                   headers: widget.headers,
@@ -2422,6 +2469,123 @@ class _ExerciceTab extends StatelessWidget {
           );
         }),
       ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// BOUTON TÉLÉCHARGEMENT HORS-LIGNE (PDF + vidéos du cours)
+// ════════════════════════════════════════════════════════════
+class _DownloadButton extends StatefulWidget {
+  const _DownloadButton({required this.course, required this.token});
+  final CourseDetail course;
+  final String token;
+
+  @override
+  State<_DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool _downloaded = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    DownloadService.isCourseDownloaded(widget.course.id).then((v) {
+      if (mounted) setState(() => _downloaded = v);
+    });
+  }
+
+  Future<void> _onTap() async {
+    if (_busy) return;
+    HapticFeedback.lightImpact();
+
+    if (_downloaded) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Supprimer le téléchargement ?',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16)),
+          content: Text('Les fichiers de ce cours ne seront plus disponibles hors-ligne.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+            FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Supprimer')),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+      await DownloadService.deleteCourse(widget.course.id);
+      if (mounted) setState(() => _downloaded = false);
+      return;
+    }
+
+    final urls = DownloadService.downloadableUrls(widget.course);
+    if (urls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Aucun fichier téléchargeable dans ce cours.',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+      ));
+      return;
+    }
+
+    setState(() => _busy = true);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.navy,
+      content: Text('Téléchargement de ${urls.length} fichier(s)… Reste sur cette page.',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+    ));
+
+    final done = await DownloadService.downloadCourse(widget.course, widget.token);
+
+    if (!mounted) return;
+    setState(() { _busy = false; _downloaded = done > 0; });
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: done > 0 ? const Color(0xFF059669) : Colors.red.shade600,
+      content: Text(
+          done > 0
+              ? '✓ $done fichier(s) disponibles hors-ligne !'
+              : 'Échec du téléchargement. Vérifie ta connexion.',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_busy) {
+      return ValueListenableBuilder<Map<int, double>>(
+        valueListenable: DownloadService.progress,
+        builder: (_, map, __) {
+          final p = map[widget.course.id];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(
+                    value: p, color: Colors.white, strokeWidth: 2.2),
+              ),
+            ),
+          );
+        },
+      );
+    }
+    return IconButton(
+      tooltip: _downloaded ? 'Disponible hors-ligne' : 'Télécharger pour le hors-ligne',
+      icon: Icon(
+        _downloaded ? Icons.download_done_rounded : Icons.download_rounded,
+        color: _downloaded ? const Color(0xFF34D399) : Colors.white,
+      ),
+      onPressed: _onTap,
     );
   }
 }

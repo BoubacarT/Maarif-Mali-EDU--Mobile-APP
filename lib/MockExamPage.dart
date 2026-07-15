@@ -83,7 +83,7 @@ class _MockExamPageState extends State<MockExamPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(children: [
         // ── Hero header ─────────────────────────────────────────────────
         _ExamHeroHeader(
