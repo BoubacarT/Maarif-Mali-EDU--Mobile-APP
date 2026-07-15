@@ -595,6 +595,17 @@ class _ActionCard extends StatelessWidget {
           child: Divider(height: 1, color: Colors.grey.shade100),
         ),
         _ActionRow(
+          icon: Icons.comment_rounded,
+          label: 'Donner mon avis',
+          sublabel: 'Suggestion, problème… l\'équipe Maarif te lit',
+          iconColor: const Color(0xFF10B981),
+          onTap: () => _showFeedbackSheet(context),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 68),
+          child: Divider(height: 1, color: Colors.grey.shade100),
+        ),
+        _ActionRow(
           icon: Icons.lock_rounded,
           label: 'Changer le mot de passe',
           sublabel: 'Sécuriser mon compte',
@@ -1104,7 +1115,8 @@ class _BiometricRowState extends State<_BiometricRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_available) return const SizedBox.shrink();
+    // Toujours visible : grisée si l'appareil n'a pas de biométrie configurée
+    final color = _available ? AppColors.teal : Colors.grey.shade400;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
@@ -1112,18 +1124,23 @@ class _BiometricRowState extends State<_BiometricRow> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.teal.withValues(alpha: 0.12),
+            color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: const Icon(Icons.fingerprint_rounded, color: AppColors.teal, size: 22),
+          child: Icon(Icons.fingerprint_rounded, color: color, size: 22),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Connexion $_label',
                 style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-            Text('Déverrouiller l\'app sans saisir le mot de passe',
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: _available ? AppColors.textPrimary : Colors.grey.shade400)),
+            Text(
+                _available
+                    ? 'Déverrouiller l\'app sans saisir le mot de passe'
+                    : 'Indisponible — configure Face ID ou une empreinte dans les réglages du téléphone',
                 style: GoogleFonts.plusJakartaSans(
                     fontSize: 11.5, color: AppColors.textSecondary)),
           ]),
@@ -1131,7 +1148,7 @@ class _BiometricRowState extends State<_BiometricRow> {
         Switch.adaptive(
           value: _enabled,
           activeThumbColor: AppColors.teal,
-          onChanged: _toggle,
+          onChanged: _available ? _toggle : null,
         ),
       ]),
     );
@@ -1376,6 +1393,219 @@ class _DarkModeRowState extends State<_DarkModeRow> {
           },
         ),
       ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// FEUILLE « DONNER MON AVIS » (feedback vers l'administration)
+// ════════════════════════════════════════════════════════════
+void _showFeedbackSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const _FeedbackSheet(),
+  );
+}
+
+class _FeedbackSheet extends StatefulWidget {
+  const _FeedbackSheet();
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  final _ctrl = TextEditingController();
+  String _type = 'suggestion';
+  bool _sending = false;
+  bool _sent = false;
+  String? _error;
+
+  static const _types = [
+    ('suggestion', '💡', 'Suggestion'),
+    ('bug', '🐞', 'Problème'),
+    ('contenu', '📚', 'Contenu'),
+    ('autre', '💬', 'Autre'),
+  ];
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final msg = _ctrl.text.trim();
+    if (msg.length < 5) {
+      setState(() => _error = 'Écris au moins quelques mots.');
+      return;
+    }
+    setState(() { _sending = true; _error = null; });
+    try {
+      final token = await AuthStorage.getToken();
+      final res = await http.post(
+        Uri.parse(ApiConfig.url('/feedback')),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'type': _type, 'message': msg}),
+      ).timeout(const Duration(seconds: 12));
+      if (!mounted) return;
+      if (res.statusCode == 201) {
+        HapticFeedback.mediumImpact();
+        setState(() { _sent = true; _sending = false; });
+      } else if (res.statusCode == 429) {
+        setState(() { _sending = false; _error = 'Tu as envoyé beaucoup de retours — réessaie dans quelques minutes.'; });
+      } else {
+        setState(() { _sending = false; _error = 'Erreur lors de l\'envoi. Réessaie.'; });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _sending = false; _error = 'Pas de connexion internet.'; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 44, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+            child: _sent
+                ? Column(children: [
+                    const Text('🎉', style: TextStyle(fontSize: 44)),
+                    const SizedBox(height: 12),
+                    Text('Merci pour ton retour !',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.navy)),
+                    const SizedBox(height: 6),
+                    Text('L\'équipe des Écoles Maarif le lira très vite.',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13, color: AppColors.textSecondary)),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.teal,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('Fermer',
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                  ])
+                : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Donner mon avis',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.navy)),
+                    const SizedBox(height: 4),
+                    Text('Ton retour est envoyé directement à l\'administration.',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.5, color: AppColors.textSecondary)),
+                    const SizedBox(height: 16),
+                    // Type de retour
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _types.map((t) {
+                        final (key, emoji, label) = t;
+                        final selected = _type == key;
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _type = key);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                            decoration: BoxDecoration(
+                              color: selected ? AppColors.teal : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: selected ? AppColors.teal : Colors.grey.shade200),
+                            ),
+                            child: Text('$emoji $label',
+                                style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: selected ? Colors.white : AppColors.textPrimary)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _ctrl,
+                      maxLines: 5,
+                      maxLength: 2000,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Dis-nous tout : ce qui te plaît, ce qui manque, ce qui bloque…',
+                        hintStyle: GoogleFonts.plusJakartaSans(
+                            fontSize: 13, color: Colors.grey.shade400),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: AppColors.teal, width: 2),
+                        ),
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 4),
+                      Text(_error!,
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12, color: Colors.red.shade600, fontWeight: FontWeight.w600)),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.teal,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: _sending ? null : _send,
+                        icon: _sending
+                            ? const SizedBox(width: 16, height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.send_rounded, size: 18),
+                        label: Text(_sending ? 'Envoi…' : 'Envoyer mon retour',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800, fontSize: 14.5)),
+                      ),
+                    ),
+                  ]),
+          ),
+        ]),
+      ),
     );
   }
 }

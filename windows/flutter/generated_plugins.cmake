@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  firebase_core
   flutter_inappwebview_windows
   local_auth_windows
   syncfusion_pdfviewer_windows
