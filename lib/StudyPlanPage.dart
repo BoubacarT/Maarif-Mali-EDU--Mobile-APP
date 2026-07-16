@@ -810,11 +810,32 @@ class _GenerateSheetState extends State<_GenerateSheet> {
     setState(() { _generating = true; _error = null; });
     try {
       final date = '${_endDate.year}-${_endDate.month.toString().padLeft(2, '0')}-${_endDate.day.toString().padLeft(2, '0')}';
-      await StudyPlanService.generate(_hours, _selectedDays.toList(), date, widget.token);
+      final res = await StudyPlanService.generate(_hours, _selectedDays.toList(), date, widget.token);
+      final created = (res['items_created'] as num?)?.toInt() ?? 0;
+      final message = res['message']?.toString();
+      if (created == 0) {
+        // Rien planifié : on explique pourquoi au lieu de fermer en silence
+        if (mounted) {
+          setState(() {
+            _generating = false;
+            _error = message ?? 'Aucune session n\'a pu être planifiée.';
+          });
+        }
+        return;
+      }
       widget.onGenerated();
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF059669),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          content: Text('✓ $message',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+        ));
+      }
     } catch (e) {
-      if (mounted) setState(() { _generating = false; _error = e.toString(); });
+      if (mounted) setState(() { _generating = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
   }
 

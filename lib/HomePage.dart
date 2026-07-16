@@ -702,7 +702,7 @@ class _ArifRecoCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ARIF te recommande',
+                  Text('MAARIFA te recommande',
                       style: GoogleFonts.plusJakartaSans(
                           fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
                   const SizedBox(height: 3),

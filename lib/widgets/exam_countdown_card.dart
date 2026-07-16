@@ -14,10 +14,14 @@ class ExamCountdownCard extends StatelessWidget {
   static (String, DateTime)? examFor(String level, DateTime now) {
     if (level.isEmpty) return null;
     final l = level.toLowerCase();
-    final isCollege = l.contains('7e') || l.contains('8e') || l.contains('9e') || l.contains('coll');
+    // Seules les classes d'examen sont concernées : 9e (DEF) et 12e (BAC)
+    final isDef = l.contains('9e') || l.contains('9è') || l.contains('9 e');
+    final isBac = l.contains('12e') || l.contains('12è') || l.contains('12 e') ||
+        l.contains('terminale') || RegExp(r'\bt(ll|seco|se|sexp)\b').hasMatch(l);
+    if (!isDef && !isBac) return null;
     // Année scolaire : à partir de juillet on vise juin de l'année suivante
     final year = now.month >= 7 ? now.year + 1 : now.year;
-    return isCollege
+    return isDef
         ? ('DEF', DateTime(year, 6, 1))
         : ('BAC', DateTime(year, 6, 15));
   }
