@@ -195,9 +195,10 @@ class _DailyChallengePageState extends State<DailyChallengePage> {
         ),
         const SizedBox(height: 18),
 
-        // Options
-        ...options.map((opt) {
-          final letter = opt.trim().substring(0, 1).toUpperCase();
+        // Options (lettre par position — robuste quel que soit le format IA)
+        ...options.asMap().entries.map((entry) {
+          final opt = entry.value;
+          final letter = String.fromCharCode(65 + entry.key);
           final isSelected = _selected == letter;
           final isCorrect = letter == correctLetter;
 
@@ -223,7 +224,7 @@ class _DailyChallengePageState extends State<DailyChallengePage> {
                   ),
                   child: Row(children: [
                     Expanded(
-                      child: Text(opt,
+                      child: Text(opt.replaceFirst(RegExp(r'^[A-Fa-f][\)\.\:\-]\s*'), ''),
                           style: GoogleFonts.plusJakartaSans(
                               fontSize: 13.5, fontWeight: FontWeight.w600,
                               color: const Color(0xFF1A1A2E), height: 1.4)),

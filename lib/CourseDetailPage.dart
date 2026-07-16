@@ -2404,11 +2404,13 @@ class _ExerciceTab extends StatelessWidget {
               Text('Q${qi + 1}. $qText', style: GoogleFonts.plusJakartaSans(
                   fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.navy, height: 1.4)),
               const SizedBox(height: 12),
-              ...options.map((opt) {
-                final optStr  = opt.toString();
-                final letter  = optStr.isNotEmpty ? optStr[0] : '';
+              ...options.asMap().entries.map((entry) {
+                final optStr = entry.value.toString();
+                // Lettre déterminée par la POSITION (robuste même si l'IA
+                // oublie les préfixes A) B) C) dans le texte des options)
+                final letter = String.fromCharCode(65 + entry.key); // A, B, C…
                 final isSelected = selected == letter;
-                final isCorrect  = letter == correct;
+                final isCorrect = correct.isNotEmpty && correct[0].toUpperCase() == letter;
                 final showResult = selected != null;
 
                 Color borderColor = Colors.grey.shade200;
@@ -2418,22 +2420,41 @@ class _ExerciceTab extends StatelessWidget {
                   else if (isSelected) { borderColor = Colors.red; bgColor = Colors.red.shade50; }
                 }
 
+                // Texte sans le préfixe « A) » éventuel
+                final display = optStr.replaceFirst(RegExp(r'^[A-Fa-f][\)\.\:\-]\s*'), '');
+
                 return GestureDetector(
-                  onTap: selected == null ? () => onAnswer(qi, letter) : null,
-                  child: Container(
+                  onTap: selected == null
+                      ? () {
+                          HapticFeedback.selectionClick();
+                          onAnswer(qi, letter);
+                        }
+                      : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                     decoration: BoxDecoration(
                       color: bgColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: borderColor),
+                      border: Border.all(
+                          color: borderColor,
+                          width: showResult && (isCorrect || isSelected) ? 1.6 : 1),
                     ),
                     child: Row(children: [
                       Container(
                         width: 26, height: 26,
                         decoration: BoxDecoration(
-                          color: isSelected ? (isCorrect ? Colors.green : Colors.red) : borderColor,
+                          color: showResult && isCorrect
+                              ? Colors.green
+                              : showResult && isSelected
+                                  ? Colors.red
+                                  : Colors.white,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                              color: showResult && (isCorrect || isSelected)
+                                  ? Colors.transparent
+                                  : Colors.grey.shade300),
                         ),
                         child: Center(
                           child: showResult && (isCorrect || isSelected)
@@ -2443,8 +2464,11 @@ class _ExerciceTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(optStr.length > 2 ? optStr.substring(2) : optStr,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary))),
+                      Expanded(child: Text(display,
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: showResult && isCorrect ? FontWeight.w700 : FontWeight.w500,
+                              color: AppColors.textPrimary, height: 1.35))),
                     ]),
                   ),
                 );
