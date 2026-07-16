@@ -1,5 +1,12 @@
+import 'dart:io' show File;
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/mock_exam_service.dart';
@@ -829,10 +836,54 @@ class _InputField extends StatelessWidget {
 // ════════════════════════════════════════════════════════════
 // PAGE RÉSULTATS
 // ════════════════════════════════════════════════════════════
-class _ResultPage extends StatelessWidget {
+class _ResultPage extends StatefulWidget {
   const _ResultPage({required this.result, required this.onDone});
   final Map<String, dynamic> result;
   final VoidCallback onDone;
+
+  @override
+  State<_ResultPage> createState() => _ResultPageState();
+}
+
+class _ResultPageState extends State<_ResultPage> {
+  Map<String, dynamic> get result => widget.result;
+  VoidCallback get onDone => widget.onDone;
+
+  final GlobalKey _shareKey = GlobalKey();
+  bool _sharing = false;
+
+  /// Capture le bulletin (hero) en image et ouvre le partage WhatsApp & co.
+  Future<void> _shareBulletin() async {
+    if (_sharing || kIsWeb) return;
+    setState(() => _sharing = true);
+    HapticFeedback.lightImpact();
+    try {
+      final boundary = _shareKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return;
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/bulletin_maarif.png');
+      await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Mon bulletin d\'examen blanc sur MaarifMaliEdu 🎓 — Écoles Maarif de Türkiye au Mali',
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Impossible de partager pour le moment.',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -854,7 +905,9 @@ class _ResultPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: Container(
+            child: RepaintBoundary(
+              key: _shareKey,
+              child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isPositive
@@ -880,7 +933,14 @@ class _ResultPage extends StatelessWidget {
                                 fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                             textAlign: TextAlign.center),
                       ),
-                      const SizedBox(width: 48),
+                      IconButton(
+                        tooltip: 'Partager mon bulletin',
+                        onPressed: _sharing ? null : _shareBulletin,
+                        icon: _sharing
+                            ? const SizedBox(width: 18, height: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.ios_share_rounded, color: Colors.white),
+                      ),
                     ]),
                     const SizedBox(height: 24),
                     // ── Note géante : /20 pondérée si disponible, sinon points nets ──
@@ -931,6 +991,7 @@ class _ResultPage extends StatelessWidget {
                     ),
                   ]),
                 ),
+              ),
               ),
             ),
           ),

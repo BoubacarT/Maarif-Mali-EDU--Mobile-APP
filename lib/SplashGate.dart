@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:maarif_learn/HomePage.dart';
+import 'package:maarif_learn/OnboardingPage.dart';
 import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/config/api_config.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
@@ -38,6 +39,17 @@ class _SplashGateState extends State<SplashGate> {
 
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) {
+      // Première ouverture : onboarding avant le login
+      if (!await OnboardingPage.alreadySeen()) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const OnboardingPage(),
+            transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+            transitionDuration: const Duration(milliseconds: 350),
+          ));
+        }
+        return;
+      }
       _goLogin();
       return;
     }

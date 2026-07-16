@@ -67,6 +67,41 @@ class ArifService {
     throw Exception(body['message'] ?? 'Erreur gamification');
   }
 
+  /// Explication d'une photo d'exercice par MAARIFA (vision).
+  static Future<String> explainImage(String base64Image, String mime, String token, {String? question}) async {
+    final res = await http.post(
+      Uri.parse(ApiConfig.url('/ai/explain-image')),
+      headers: _headers(token),
+      body: jsonEncode({
+        'image': base64Image,
+        'mime': mime,
+        if (question != null && question.isNotEmpty) 'question': question,
+      }),
+    ).timeout(const Duration(seconds: 75));
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 200) return body['explanation'] ?? '';
+    throw Exception(body['message'] ?? 'Erreur analyse image');
+  }
+
+  /// Défi du jour (5 QCM). Retourne {done: bool, data: {course, questions}}.
+  static Future<Map<String, dynamic>> getDailyChallenge(String token) async {
+    final res = await http.get(Uri.parse(ApiConfig.url('/ai/daily-challenge')), headers: _headers(token));
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 200) return body;
+    throw Exception(body['message'] ?? 'Pas de défi disponible');
+  }
+
+  static Future<Map<String, dynamic>> completeDailyChallenge(int correct, String token) async {
+    final res = await http.post(
+      Uri.parse(ApiConfig.url('/ai/daily-challenge/complete')),
+      headers: _headers(token),
+      body: jsonEncode({'correct': correct}),
+    );
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 200) return body;
+    throw Exception(body['message'] ?? 'Erreur validation défi');
+  }
+
   static Future<Map<String, dynamic>> getLeaderboard(String token) async {
     final res = await http.get(Uri.parse(ApiConfig.url('/ai/leaderboard')), headers: _headers(token));
     final body = jsonDecode(res.body);

@@ -6,6 +6,7 @@ import 'package:maarif_learn/CoursePage.dart';
 import 'package:maarif_learn/MockExamPage.dart';
 import 'package:maarif_learn/PageLogin.dart';
 import 'package:maarif_learn/ProfilePage.dart';
+import 'package:maarif_learn/DailyChallengePage.dart';
 import 'package:maarif_learn/SearchPage.dart';
 import 'package:maarif_learn/StudyPlanPage.dart';
 import 'package:maarif_learn/services/arif_service.dart';
@@ -381,6 +382,9 @@ class _SubjectsTab extends StatelessWidget {
 
         // Compte à rebours DEF/BAC
         SliverToBoxAdapter(child: ExamCountdownCard(levelName: levelName)),
+
+        // Défi du jour ⚡
+        const SliverToBoxAdapter(child: _DailyChallengeCard()),
 
         // ARIF recommendation block
         if (arifRecos.isNotEmpty)
@@ -829,6 +833,63 @@ class _FloatingNavBar extends StatelessWidget {
             );
           }),
         ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// CARTE DÉFI DU JOUR ⚡
+// ════════════════════════════════════════════════════════════
+class _DailyChallengeCard extends StatelessWidget {
+  const _DailyChallengeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const DailyChallengePage()));
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFC2410C), Color(0xFFF97316)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFFF97316).withValues(alpha: 0.3),
+                blurRadius: 14, offset: const Offset(0, 6)),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text('⚡', style: TextStyle(fontSize: 24)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Défi du jour',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+              Text('5 questions éclair · XP doublés · une chance par jour',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5, color: Colors.white.withValues(alpha: 0.85))),
+            ]),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 26),
+        ]),
       ),
     );
   }

@@ -9,15 +9,15 @@ import 'package:maarif_learn/theme/app_colors.dart';
 /// À chaque nouvelle version : incrémenter [currentVersion] et mettre à jour
 /// la liste [_features].
 class WhatsNew {
-  static const currentVersion = '1.2.0';
+  static const currentVersion = '1.3.0';
   static const _prefsKey = 'maarif_seen_version';
 
   static const _features = [
-    ('🔔', 'Notifications MAARIFA', 'Les conseils de MAARIFA arrivent sur ton téléphone, même app fermée.'),
-    ('⏰', 'Rappel de révision', 'Active un rappel quotidien dans ton profil — il fonctionne même hors-ligne.'),
-    ('🎯', 'Compte à rebours DEF/BAC', 'Le nombre de jours avant ton examen, directement sur l\'accueil.'),
-    ('📴', 'Mode hors-ligne', 'Tes cours consultés restent disponibles même sans connexion internet.'),
-    ('✨', 'MAARIFA améliorée', 'Appui long pour copier un message, bouton « Nouvelle » pour repartir de zéro.'),
+    ('🎤', 'Parle à MAARIFA', 'Pose tes questions à la voix et active la lecture à voix haute des réponses.'),
+    ('📸', 'Photo d\'exercice', 'Photographie un exercice de ton cahier — MAARIFA l\'explique étape par étape.'),
+    ('⚡', 'Défi du jour', '5 questions éclair chaque jour, XP doublés — garde ta série 🔥 !'),
+    ('📤', 'Partage ton bulletin', 'Partage tes résultats d\'examen blanc sur WhatsApp en une image.'),
+    ('🎨', 'Nouveau look', 'Icône officielle, écran de démarrage et présentation à la première ouverture.'),
   ];
 
   /// Affiche la feuille si cette version n'a pas encore été vue.

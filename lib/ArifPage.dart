@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 import 'package:maarif_learn/services/arif_service.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
+import 'package:maarif_learn/services/voice_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
 
 // Palette MAARIFA
@@ -324,6 +327,9 @@ class _ChatTabState extends State<_ChatTab> {
   int?  _conversationId;
   bool  _sending      = false;
   bool  _initializing = true;
+  bool  _recording    = false;
+  bool  _transcribing = false;
+  bool  _ttsEnabled   = false;
 
   static const _suggestions = [
     ('📚', 'Résumer un cours'),
@@ -338,6 +344,9 @@ class _ChatTabState extends State<_ChatTab> {
   void initState() {
     super.initState();
     _initConversation();
+    VoiceService.isTtsEnabled().then((v) {
+      if (mounted) setState(() => _ttsEnabled = v);
+    });
   }
 
   @override
@@ -345,7 +354,120 @@ class _ChatTabState extends State<_ChatTab> {
     _ctrl.dispose();
     _scrollCtrl.dispose();
     _focusNode.dispose();
+    VoiceService.stop();
     super.dispose();
+  }
+
+  // ── MAARIFA vocale : micro → transcription → envoi ─────────
+  Future<void> _toggleRecording() async {
+    if (_sending || _transcribing) return;
+    if (!_recording) {
+      final ok = await VoiceService.startRecording();
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.shade600,
+            content: Text('Micro refusé — autorise-le dans les réglages du téléphone.',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+          ));
+        }
+        return;
+      }
+      HapticFeedback.mediumImpact();
+      setState(() => _recording = true);
+    } else {
+      HapticFeedback.lightImpact();
+      setState(() { _recording = false; _transcribing = true; });
+      final text = await VoiceService.stopAndTranscribe();
+      if (!mounted) return;
+      setState(() => _transcribing = false);
+      if (text == null || text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: _kVioletDark,
+          content: Text('Je n\'ai pas compris 🎤 — réessaie en parlant plus près du micro.',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+        ));
+        return;
+      }
+      _send(text);
+    }
+  }
+
+  // ── Photo d'exercice → explication MAARIFA ─────────────────
+  Future<void> _pickAndExplainImage() async {
+    if (_sending) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_rounded, color: _kViolet),
+            title: Text('Prendre une photo de l\'exercice',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            onTap: () => Navigator.pop(ctx, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded, color: _kViolet),
+            title: Text('Choisir dans la galerie',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+          source: source, maxWidth: 1600, imageQuality: 72);
+      if (picked == null || !mounted) return;
+
+      final bytes = await picked.readAsBytes();
+      final b64 = base64Encode(bytes);
+      final question = _ctrl.text.trim();
+      _ctrl.clear();
+
+      HapticFeedback.lightImpact();
+      setState(() {
+        _messages.add(_Msg(
+            text: question.isNotEmpty
+                ? '📸 Photo envoyée — $question'
+                : '📸 Photo d\'exercice envoyée',
+            isAi: false));
+        _sending = true;
+      });
+      _scrollDown();
+
+      final explanation = await ArifService.explainImage(
+          b64, 'image/jpeg', widget.token,
+          question: question.isNotEmpty ? question : null);
+      HapticFeedback.selectionClick();
+      if (mounted) {
+        setState(() {
+          _messages.add(_Msg(text: explanation, isAi: true));
+          _sending = false;
+        });
+        _scrollDown();
+        if (_ttsEnabled) VoiceService.speak(explanation);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(_Msg(
+              text: e.toString().replaceFirst('Exception: ', ''),
+              isAi: true, isError: true));
+          _sending = false;
+        });
+        _scrollDown();
+      }
+    }
   }
 
   Future<void> _initConversation() async {
@@ -405,6 +527,7 @@ class _ChatTabState extends State<_ChatTab> {
         });
         _scrollDown();
         widget.onStatsRefresh();
+        if (_ttsEnabled) VoiceService.speak(reply);
       }
     } catch (_) {
       if (mounted) {
@@ -498,6 +621,40 @@ class _ChatTabState extends State<_ChatTab> {
                 return _BubbleTile(msg: _messages[i]);
               },
             ),
+            // Toggle lecture à voix haute
+            Positioned(
+              top: 8,
+              left: 10,
+              child: GestureDetector(
+                onTap: () async {
+                  HapticFeedback.selectionClick();
+                  final v = !_ttsEnabled;
+                  await VoiceService.setTtsEnabled(v);
+                  if (mounted) setState(() => _ttsEnabled = v);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _ttsEnabled ? _kViolet : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _kViolet.withValues(alpha: 0.25)),
+                    boxShadow: [BoxShadow(
+                      color: _kViolet.withValues(alpha: 0.12),
+                      blurRadius: 8, offset: const Offset(0, 2),
+                    )],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(_ttsEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                        size: 14, color: _ttsEnabled ? Colors.white : _kViolet),
+                    const SizedBox(width: 5),
+                    Text('Voix',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11, fontWeight: FontWeight.w800,
+                            color: _ttsEnabled ? Colors.white : _kViolet)),
+                  ]),
+                ),
+              ),
+            ),
             // Bouton « nouvelle conversation »
             Positioned(
               top: 8,
@@ -573,6 +730,48 @@ class _ChatTabState extends State<_ChatTab> {
             border: Border(top: BorderSide(color: _kViolet.withValues(alpha: 0.08), width: 1)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            // Photo d'exercice
+            GestureDetector(
+              onTap: _pickAndExplainImage,
+              child: Container(
+                width: 38, height: 38,
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: _kVioletLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _kViolet.withValues(alpha: 0.2)),
+                ),
+                child: const Icon(Icons.photo_camera_rounded, color: _kViolet, size: 18),
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Micro (question vocale)
+            GestureDetector(
+              onTap: _toggleRecording,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 38, height: 38,
+                margin: const EdgeInsets.only(bottom: 2),
+                decoration: BoxDecoration(
+                  color: _recording ? Colors.red.shade500 : _kVioletLight,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: _recording ? Colors.red.shade500 : _kViolet.withValues(alpha: 0.2)),
+                  boxShadow: _recording
+                      ? [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 12)]
+                      : [],
+                ),
+                child: _transcribing
+                    ? const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: CircularProgressIndicator(color: _kViolet, strokeWidth: 2))
+                    : Icon(
+                        _recording ? Icons.stop_rounded : Icons.mic_rounded,
+                        color: _recording ? Colors.white : _kViolet,
+                        size: 18),
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 110),
@@ -584,7 +783,11 @@ class _ChatTabState extends State<_ChatTab> {
                   maxLines: null,
                   style: GoogleFonts.plusJakartaSans(fontSize: 14, color: const Color(0xFF1A1A2E)),
                   decoration: InputDecoration(
-                    hintText: 'Pose ta question…',
+                    hintText: _recording
+                        ? '🔴 Je t\'écoute… tape sur stop quand tu as fini'
+                        : _transcribing
+                            ? '✨ Je transcris ta question…'
+                            : 'Pose ta question…',
                     hintStyle: GoogleFonts.plusJakartaSans(
                         color: const Color(0xFFC4B5FD), fontSize: 13),
                     filled: true,
