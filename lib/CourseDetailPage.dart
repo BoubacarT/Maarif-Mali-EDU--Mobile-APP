@@ -197,68 +197,92 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 ? const SizedBox.shrink()
                 : Column(
                     children: [
+                      // ── Hero premium ─────────────────────────────
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
                         decoration: const BoxDecoration(gradient: AppColors.heroGradient),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              course.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                            Row(children: [
+                              Container(
+                                width: 48, height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                                ),
+                                child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 24),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                _buildHeaderPill(
-                                  icon: Icons.menu_book_rounded,
-                                  label: "Cours",
+                              const SizedBox(width: 13),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(course.subject.name.toUpperCase(),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 10.5, fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.2, color: AppColors.teal)),
+                                    const SizedBox(height: 3),
+                                    Text(course.title,
+                                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(
+                                            color: Colors.white, fontSize: 18,
+                                            fontWeight: FontWeight.w800, height: 1.2)),
+                                  ],
                                 ),
-                                _buildHeaderPill(
-                                  icon: Icons.play_circle_fill_rounded,
-                                  label: "${course.videos.length} vidéo(s)",
-                                ),
-                                _buildHeaderPill(
-                                  icon: Icons.assignment_rounded,
-                                  label: "${course.exercises.length} exercice(s)",
-                                ),
-                                _buildHeaderPill(
-                                  icon: Icons.quiz_rounded,
-                                  label: "${course.quiz?.questions.length ?? 0} quiz",
-                                ),
-                              ],
-                            ),
+                              ),
+                            ]),
+                            const SizedBox(height: 16),
+                            Row(children: [
+                              Expanded(child: _heroStat(Icons.menu_book_rounded, 'Leçon', '1')),
+                              const SizedBox(width: 8),
+                              Expanded(child: _heroStat(Icons.play_circle_fill_rounded, 'Vidéos', '${course.videos.length}')),
+                              const SizedBox(width: 8),
+                              Expanded(child: _heroStat(Icons.assignment_rounded, 'Exos', '${course.exercises.length}')),
+                              const SizedBox(width: 8),
+                              Expanded(child: _heroStat(Icons.quiz_rounded, 'Quiz', '${course.quiz?.questions.length ?? 0}')),
+                            ]),
                           ],
                         ),
                       ),
-                      Material(
+                      // ── TabBar pilule moderne ────────────────────
+                      Container(
                         color: Colors.white,
-                        child: TabBar(
-                          controller: _tabController,
-                          labelColor: AppColors.teal,
-                          unselectedLabelColor: Colors.grey,
-                          dividerColor: Colors.grey.shade200,
-                          indicatorSize: TabBarIndicatorSize.tab,
-                          indicator: UnderlineTabIndicator(
-                            borderSide: const BorderSide(
-                              color: AppColors.teal,
-                              width: 3,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          tabs: const [
-                            Tab(icon: Icon(Icons.book), text: "Cours"),
-                            Tab(icon: Icon(Icons.play_circle), text: "Vidéos"),
-                            Tab(icon: Icon(Icons.description), text: "Exercices"),
-                            Tab(icon: Icon(Icons.quiz), text: "Quiz"),
-                          ],
+                          child: TabBar(
+                            controller: _tabController,
+                            labelColor: Colors.white,
+                            unselectedLabelColor: AppColors.navy.withValues(alpha: 0.55),
+                            dividerColor: Colors.transparent,
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            indicatorPadding: const EdgeInsets.all(4),
+                            splashBorderRadius: BorderRadius.circular(11),
+                            indicator: BoxDecoration(
+                              gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0083A3)]),
+                              borderRadius: BorderRadius.circular(11),
+                              boxShadow: [BoxShadow(
+                                  color: AppColors.teal.withValues(alpha: 0.3),
+                                  blurRadius: 8, offset: const Offset(0, 2))],
+                            ),
+                            labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 12.5),
+                            unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 12.5),
+                            tabs: const [
+                              Tab(text: 'Cours'),
+                              Tab(text: 'Vidéos'),
+                              Tab(text: 'Exercices'),
+                              Tab(text: 'Quiz'),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -471,15 +495,22 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildReadingSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: Color(0xFF3E3427),
-        letterSpacing: 0.2,
+    return Row(children: [
+      Container(
+        width: 4, height: 18,
+        margin: const EdgeInsets.only(right: 9),
+        decoration: BoxDecoration(color: AppColors.teal, borderRadius: BorderRadius.circular(2)),
       ),
-    );
+      Text(
+        title,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 16.5,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF3E3427),
+          letterSpacing: 0.2,
+        ),
+      ),
+    ]);
   }
 
   Widget _buildReadingTextBlock(String text) {
@@ -534,29 +565,24 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     );
   }
 
-  Widget _buildHeaderPill({required IconData icon, required String label}) {
+  // Tuile statistique dans le hero (icône + nombre + libellé)
+  Widget _heroStat(IconData icon, String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+      child: Column(children: [
+        Icon(icon, size: 17, color: AppColors.teal),
+        const SizedBox(height: 5),
+        Text(value, style: GoogleFonts.plusJakartaSans(
+            fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
+        const SizedBox(height: 1),
+        Text(label, style: GoogleFonts.plusJakartaSans(
+            fontSize: 9.5, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.65))),
+      ]),
     );
   }
 
@@ -572,20 +598,23 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                color: AppColors.teal.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(colors: [
+                  AppColors.teal.withValues(alpha: 0.14),
+                  AppColors.navy.withValues(alpha: 0.08),
+                ]),
+                shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 36, color: AppColors.teal),
+              child: Icon(icon, size: 40, color: AppColors.teal),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
                 color: AppColors.navy,
               ),
             ),
@@ -594,7 +623,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, height: 1.4),
+                style: GoogleFonts.plusJakartaSans(color: Colors.grey.shade500, height: 1.5, fontSize: 12.5),
               ),
             ],
           ],
