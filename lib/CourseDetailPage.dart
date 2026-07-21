@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -2189,31 +2190,51 @@ class _FlashcardsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator(color: _kV));
+    if (loading) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircularProgressIndicator(color: _kV),
+          const SizedBox(height: 16),
+          Text('MAARIFA prépare tes flashcards…',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500)),
+        ]),
+      );
+    }
 
     if (cards.isEmpty) {
       return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.style_rounded, size: 48, color: _kV),
-          const SizedBox(height: 12),
-          Text('Flashcards IA', style: GoogleFonts.plusJakartaSans(
-              fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy)),
-          const SizedBox(height: 6),
-          Text('MAARIFA génère 8 flashcards\nà mémoriser sur ce cours.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey, height: 1.5),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onGenerate,
-            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-            label: const Text('Générer les flashcards'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kV, foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [_kV.withValues(alpha: 0.12), _kG.withValues(alpha: 0.10)]),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.style_rounded, size: 40, color: _kV),
             ),
-          ),
-        ]),
+            const SizedBox(height: 18),
+            Text('Cartes mémoire', style: GoogleFonts.plusJakartaSans(
+                fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.navy)),
+            const SizedBox(height: 8),
+            Text('MAARIFA génère 8 cartes recto-verso\npour réviser l\'essentiel de ce cours.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500, height: 1.5),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 22),
+            FilledButton.icon(
+              onPressed: () { HapticFeedback.lightImpact(); onGenerate(); },
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: Text('Générer les cartes',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 14)),
+              style: FilledButton.styleFrom(
+                backgroundColor: _kV, foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ]),
+        ),
       );
     }
 
@@ -2223,92 +2244,298 @@ class _FlashcardsTab extends StatelessWidget {
     final difficulty = card['difficulty'] as String? ?? '';
 
     final diffColor = difficulty == 'facile'
-        ? Colors.green : difficulty == 'difficile' ? Colors.red : Colors.orange;
+        ? const Color(0xFF10B981) : difficulty == 'difficile' ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+    final isLast = cardIndex == cards.length - 1;
 
     return Column(children: [
-      // Progress
+      // ── Barre de progression segmentée ────────────────────────
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+        child: Row(children: List.generate(cards.length, (i) {
+          final active = i <= cardIndex;
+          return Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              height: 5,
+              margin: EdgeInsets.only(right: i == cards.length - 1 ? 0 : 4),
+              decoration: BoxDecoration(
+                color: active ? _kV : _kV.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          );
+        })),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('${cardIndex + 1} / ${cards.length}',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(difficulty, style: GoogleFonts.plusJakartaSans(
-                fontSize: 11, fontWeight: FontWeight.w700, color: diffColor)),
-          ),
+          Row(children: [
+            Icon(Icons.style_rounded, size: 15, color: _kV.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Text('Carte ${cardIndex + 1} sur ${cards.length}',
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w700)),
+          ]),
+          if (difficulty.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: BoxDecoration(
+                color: diffColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(difficulty[0].toUpperCase() + difficulty.substring(1),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11, fontWeight: FontWeight.w800, color: diffColor)),
+            ),
         ]),
       ),
-      // Card
+
+      // ── Carte 3D avec retournement ────────────────────────────
       Expanded(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GestureDetector(
-            onTap: onFlip,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-              child: Container(
-                key: ValueKey(flipped),
-                width: double.infinity,
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  gradient: flipped
-                      ? const LinearGradient(colors: [_kVD, _kV], begin: Alignment.topLeft, end: Alignment.bottomRight)
-                      : null,
-                  color: flipped ? null : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: _kV.withValues(alpha: flipped ? 0.3 : 0.08),
-                      blurRadius: 24, offset: const Offset(0, 8))],
-                  border: flipped ? null : Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(flipped ? Icons.lightbulb_rounded : Icons.help_outline_rounded,
-                      color: flipped ? _kG : _kV, size: 32),
-                  const SizedBox(height: 16),
-                  Text(flipped ? '💡 Réponse' : '❓ Question',
-                      style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11, fontWeight: FontWeight.w700,
-                          color: flipped ? Colors.white60 : Colors.grey.shade400)),
-                  const SizedBox(height: 12),
-                  Text(flipped ? answer : question,
-                      style: GoogleFonts.plusJakartaSans(
-                          fontSize: 15, height: 1.5, fontWeight: FontWeight.w600,
-                          color: flipped ? Colors.white : AppColors.navy),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 20),
-                  Text('Appuie pour ${flipped ? 'voir la question' : 'voir la réponse'}',
-                      style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10, color: flipped ? Colors.white30 : Colors.grey.shade400)),
-                ]),
-              ),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+          child: _FlipCard(
+            key: ValueKey(cardIndex),
+            flipped: flipped,
+            onTap: () { HapticFeedback.selectionClick(); onFlip(); },
+            front: _CardFace(
+              badge: 'QUESTION',
+              badgeIcon: Icons.help_outline_rounded,
+              badgeColor: _kV,
+              text: question,
+              textColor: AppColors.navy,
+              dark: false,
+              hint: 'Touche la carte pour révéler la réponse',
+            ),
+            back: _CardFace(
+              badge: 'RÉPONSE',
+              badgeIcon: Icons.lightbulb_rounded,
+              badgeColor: _kG,
+              text: answer,
+              textColor: Colors.white,
+              dark: true,
+              hint: 'Touche pour revoir la question',
             ),
           ),
         ),
       ),
-      // Navigation
+
+      // ── Navigation ────────────────────────────────────────────
       Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton(
-            onPressed: cardIndex > 0 ? onPrev : null,
-            icon: const Icon(Icons.arrow_back_ios_rounded),
-            color: _kV,
-            disabledColor: Colors.grey.shade200,
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+        child: Row(children: [
+          _NavCircleButton(
+            icon: Icons.arrow_back_rounded,
+            enabled: cardIndex > 0,
+            onTap: () { HapticFeedback.lightImpact(); onPrev(); },
           ),
-          const SizedBox(width: 16),
-          Text('Retourner', style: GoogleFonts.plusJakartaSans(color: Colors.grey, fontSize: 12)),
-          const SizedBox(width: 16),
-          IconButton(
-            onPressed: cardIndex < cards.length - 1 ? onNext : null,
-            icon: const Icon(Icons.arrow_forward_ios_rounded),
-            color: _kV,
-            disabledColor: Colors.grey.shade200,
+          const SizedBox(width: 14),
+          Expanded(
+            child: GestureDetector(
+              onTap: () { HapticFeedback.selectionClick(); onFlip(); },
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _kV.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _kV.withValues(alpha: 0.18)),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.flip_rounded, size: 17, color: _kV),
+                  const SizedBox(width: 8),
+                  Text('Retourner', style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5, fontWeight: FontWeight.w800, color: _kV)),
+                ]),
+              ),
+            ),
           ),
+          const SizedBox(width: 14),
+          isLast
+              ? _NavCircleButton(
+                  icon: Icons.refresh_rounded,
+                  enabled: true,
+                  filled: true,
+                  onTap: () { HapticFeedback.mediumImpact(); onGenerate(); },
+                )
+              : _NavCircleButton(
+                  icon: Icons.arrow_forward_rounded,
+                  enabled: true,
+                  filled: true,
+                  onTap: () { HapticFeedback.lightImpact(); onNext(); },
+                ),
         ]),
       ),
     ]);
+  }
+}
+
+// ── Bouton rond de navigation flashcards ──────────────────────
+class _NavCircleButton extends StatelessWidget {
+  const _NavCircleButton({
+    required this.icon, required this.enabled, required this.onTap, this.filled = false,
+  });
+  final IconData icon;
+  final bool enabled, filled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 48, height: 48,
+        decoration: BoxDecoration(
+          color: !enabled
+              ? Colors.grey.shade100
+              : filled ? _kV : Colors.white,
+          shape: BoxShape.circle,
+          border: filled || !enabled ? null : Border.all(color: _kV.withValues(alpha: 0.3)),
+          boxShadow: filled && enabled
+              ? [BoxShadow(color: _kV.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
+              : null,
+        ),
+        child: Icon(icon, size: 20,
+            color: !enabled ? Colors.grey.shade300 : filled ? Colors.white : _kV),
+      ),
+    );
+  }
+}
+
+// ── Face d'une flashcard ──────────────────────────────────────
+class _CardFace extends StatelessWidget {
+  const _CardFace({
+    required this.badge, required this.badgeIcon, required this.badgeColor,
+    required this.text, required this.textColor, required this.dark, required this.hint,
+  });
+  final String badge, text, hint;
+  final IconData badgeIcon;
+  final Color badgeColor, textColor;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        gradient: dark
+            ? const LinearGradient(colors: [Color(0xFF2D1B69), _kVD, _kV],
+                begin: Alignment.topLeft, end: Alignment.bottomRight)
+            : const LinearGradient(colors: [Colors.white, Color(0xFFFBFAFF)],
+                begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(26),
+        border: dark ? null : Border.all(color: _kV.withValues(alpha: 0.10)),
+        boxShadow: [BoxShadow(
+            color: (dark ? _kV : Colors.black).withValues(alpha: dark ? 0.35 : 0.07),
+            blurRadius: 28, offset: const Offset(0, 12))],
+      ),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        // Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: dark ? Colors.white.withValues(alpha: 0.14) : badgeColor.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(badgeIcon, size: 15, color: dark ? _kG : badgeColor),
+            const SizedBox(width: 6),
+            Text(badge, style: GoogleFonts.plusJakartaSans(
+                fontSize: 10.5, fontWeight: FontWeight.w900,
+                letterSpacing: 1, color: dark ? Colors.white : badgeColor)),
+          ]),
+        ),
+        const Spacer(),
+        // Texte
+        Flexible(
+          flex: 6,
+          child: Center(
+            child: SingleChildScrollView(
+              child: Text(text, textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 17, height: 1.5, fontWeight: FontWeight.w700, color: textColor)),
+            ),
+          ),
+        ),
+        const Spacer(),
+        // Hint
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.touch_app_rounded, size: 13,
+              color: dark ? Colors.white38 : Colors.grey.shade400),
+          const SizedBox(width: 5),
+          Text(hint, style: GoogleFonts.plusJakartaSans(
+              fontSize: 10.5, color: dark ? Colors.white38 : Colors.grey.shade400)),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ── Carte à retournement 3D (rotation Y avec perspective) ──────
+class _FlipCard extends StatefulWidget {
+  const _FlipCard({
+    super.key, required this.flipped, required this.front, required this.back, required this.onTap,
+  });
+  final bool flipped;
+  final Widget front, back;
+  final VoidCallback onTap;
+
+  @override
+  State<_FlipCard> createState() => _FlipCardState();
+}
+
+class _FlipCardState extends State<_FlipCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutCubic);
+    if (widget.flipped) _ctrl.value = 1;
+  }
+
+  @override
+  void didUpdateWidget(_FlipCard old) {
+    super.didUpdateWidget(old);
+    if (widget.flipped != old.flipped) {
+      widget.flipped ? _ctrl.forward() : _ctrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (_, __) {
+          final angle = _anim.value * math.pi; // 0 → π
+          final showBack = _anim.value > 0.5;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.0012) // perspective
+              ..rotateY(angle),
+            child: showBack
+                // Contre-rotation pour que le dos ne soit pas en miroir
+                ? Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()..rotateY(math.pi),
+                    child: widget.back,
+                  )
+                : widget.front,
+          );
+        },
+      ),
+    );
   }
 }
 
