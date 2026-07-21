@@ -2125,54 +2125,189 @@ class _SummaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator(color: _kV));
-
-    if (summary == null) {
+    if (loading) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.summarize_rounded, size: 48, color: _kV),
-          const SizedBox(height: 12),
-          Text('Générer un résumé IA', style: GoogleFonts.plusJakartaSans(
-              fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy)),
-          const SizedBox(height: 6),
-          Text('MAARIFA va créer un résumé\npédagogique de ce cours.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey, height: 1.5),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onGenerate,
-            icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-            label: const Text('Générer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kV, foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
+          const CircularProgressIndicator(color: _kV),
+          const SizedBox(height: 16),
+          Text('MAARIFA résume ton cours…',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500)),
         ]),
       );
     }
 
+    if (summary == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [_kV.withValues(alpha: 0.12), _kG.withValues(alpha: 0.10)]),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.summarize_rounded, size: 40, color: _kV),
+            ),
+            const SizedBox(height: 18),
+            Text('Résumé du cours', style: GoogleFonts.plusJakartaSans(
+                fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.navy)),
+            const SizedBox(height: 8),
+            Text('MAARIFA extrait l\'essentiel de ce cours\nen un résumé clair et structuré.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500, height: 1.5),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 22),
+            FilledButton.icon(
+              onPressed: () { HapticFeedback.lightImpact(); onGenerate(); },
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: Text('Générer le résumé',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 14)),
+              style: FilledButton.styleFrom(
+                backgroundColor: _kV, foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _kV.withValues(alpha: 0.10)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 16, offset: const Offset(0, 6))],
           ),
-          child: Text(summary!, style: GoogleFonts.plusJakartaSans(fontSize: 13, height: 1.7, color: AppColors.textPrimary)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(color: _kV.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.auto_stories_rounded, size: 16, color: _kV),
+              ),
+              const SizedBox(width: 10),
+              Text('L\'essentiel à retenir', style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navy)),
+            ]),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Divider(height: 1, color: Colors.grey.shade100),
+            ),
+            ..._MarkdownLite.build(summary!),
+          ]),
         ),
-        const SizedBox(height: 16),
-        TextButton.icon(
-          onPressed: onGenerate,
-          icon: const Icon(Icons.refresh_rounded, size: 16, color: _kV),
-          label: Text('Régénérer', style: GoogleFonts.plusJakartaSans(color: _kV, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 14),
+        GestureDetector(
+          onTap: () { HapticFeedback.mediumImpact(); onGenerate(); },
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: _kV.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _kV.withValues(alpha: 0.18)),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.refresh_rounded, size: 17, color: _kV),
+              const SizedBox(width: 8),
+              Text('Régénérer le résumé', style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5, fontWeight: FontWeight.w800, color: _kV)),
+            ]),
+          ),
         ),
       ],
     );
+  }
+}
+
+// ── Mini-moteur markdown (titres **…**, gras inline, puces) ────
+class _MarkdownLite {
+  static List<Widget> build(String md) {
+    final widgets = <Widget>[];
+    final lines = md.replaceAll('\r\n', '\n').split('\n');
+
+    for (var raw in lines) {
+      final line = raw.trim();
+      if (line.isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      // Titre markdown ## ou ligne entièrement en **gras**
+      final headingMatch = RegExp(r'^#{1,4}\s+(.+)$').firstMatch(line);
+      final boldWhole = RegExp(r'^\*\*(.+?)\*\*:?$').firstMatch(line);
+      if (headingMatch != null || boldWhole != null) {
+        final title = (headingMatch?.group(1) ?? boldWhole!.group(1) ?? '')
+            .replaceAll('*', '').trim();
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 6),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 3.5, height: 16,
+              margin: const EdgeInsets.only(top: 2, right: 9),
+              decoration: BoxDecoration(color: _kV, borderRadius: BorderRadius.circular(2)),
+            ),
+            Expanded(
+              child: Text(title, style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14.5, fontWeight: FontWeight.w800, color: _kVD, height: 1.35)),
+            ),
+          ]),
+        ));
+        continue;
+      }
+
+      // Puce (* , - , •)
+      final bulletMatch = RegExp(r'^[\*\-•]\s+(.+)$').firstMatch(line);
+      if (bulletMatch != null) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 7, left: 2),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 7, right: 9),
+              child: Container(width: 5, height: 5,
+                  decoration: const BoxDecoration(color: _kV, shape: BoxShape.circle)),
+            ),
+            Expanded(child: RichText(text: TextSpan(
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13, height: 1.55, color: AppColors.textPrimary),
+                children: _inlineSpans(bulletMatch.group(1)!)))),
+          ]),
+        ));
+        continue;
+      }
+
+      // Paragraphe normal (avec gras inline)
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: RichText(text: TextSpan(
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 13, height: 1.6, color: AppColors.textPrimary),
+            children: _inlineSpans(line))),
+      ));
+    }
+    return widgets;
+  }
+
+  /// Découpe une ligne en spans normaux / **gras**.
+  static List<TextSpan> _inlineSpans(String text) {
+    final spans = <TextSpan>[];
+    final reg = RegExp(r'\*\*(.+?)\*\*');
+    int last = 0;
+    for (final m in reg.allMatches(text)) {
+      if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
+      spans.add(TextSpan(
+          text: m.group(1),
+          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy)));
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return spans;
   }
 }
 
