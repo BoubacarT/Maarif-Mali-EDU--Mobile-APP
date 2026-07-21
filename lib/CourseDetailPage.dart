@@ -2551,35 +2551,79 @@ class _ExerciceTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator(color: _kV));
-
-    if (questions.isEmpty) {
+    if (loading) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.quiz_rounded, size: 48, color: _kV),
-          const SizedBox(height: 12),
-          Text('Exercice IA', style: GoogleFonts.plusJakartaSans(
-              fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy)),
-          const SizedBox(height: 6),
-          Text('Choisis un niveau de difficulté :',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 20),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            for (final diff in ['facile', 'moyen', 'difficile'])
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: ElevatedButton(
-                  onPressed: () => onGenerate(diff),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: diff == 'facile' ? Colors.green : diff == 'difficile' ? Colors.red : Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          const CircularProgressIndicator(color: _kV),
+          const SizedBox(height: 16),
+          Text('MAARIFA rédige tes questions…',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500)),
+        ]),
+      );
+    }
+
+    if (questions.isEmpty) {
+      const diffs = [
+        ('facile', '🌱', 'Facile', 'Questions de base', Color(0xFF10B981)),
+        ('moyen', '⚡', 'Moyen', 'Un peu plus de réflexion', Color(0xFFF59E0B)),
+        ('difficile', '🔥', 'Difficile', 'Pour te dépasser', Color(0xFFEF4444)),
+      ];
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [_kV.withValues(alpha: 0.12), _kG.withValues(alpha: 0.10)]),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.quiz_rounded, size: 40, color: _kV),
+          ),
+          const SizedBox(height: 18),
+          Text('Teste tes connaissances', style: GoogleFonts.plusJakartaSans(
+              fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.navy)),
+          const SizedBox(height: 8),
+          Text('MAARIFA crée un QCM sur mesure à partir de ce cours.\nChoisis ton niveau :',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.grey.shade500, height: 1.5),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 22),
+          ...diffs.map((d) {
+            final (key, emoji, label, sub, color) = d;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
+                onTap: () { HapticFeedback.lightImpact(); onGenerate(key); },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.08),
+                        blurRadius: 12, offset: const Offset(0, 4))],
                   ),
-                  child: Text(diff, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 12)),
+                  child: Row(children: [
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(label, style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5, fontWeight: FontWeight.w800, color: AppColors.navy)),
+                      Text(sub, style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5, color: Colors.grey.shade500)),
+                    ])),
+                    Icon(Icons.arrow_forward_rounded, size: 18, color: color),
+                  ]),
                 ),
               ),
-          ]),
+            );
+          }),
         ]),
       );
     }
@@ -2596,20 +2640,53 @@ class _ExerciceTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       children: [
-        if (done) Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_kVD, _kV]),
-            borderRadius: BorderRadius.circular(18),
+        if (done) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [_kVD, _kV]),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: _kV.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
+            ),
+            child: Column(children: [
+              Text(
+                  score == questions.length ? '🏆' : score >= questions.length / 2 ? '💪' : '📚',
+                  style: const TextStyle(fontSize: 34)),
+              const SizedBox(height: 6),
+              Text('$score / ${questions.length} bonnes réponses',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(
+                  score == questions.length
+                      ? 'Sans faute, bravo !'
+                      : score >= questions.length / 2
+                          ? 'Bien joué, continue !'
+                          : 'Revois le cours et réessaie 😉',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70)),
+            ]),
           ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.emoji_events_rounded, color: _kG, size: 28),
-            const SizedBox(width: 10),
-            Text('Score : $score / ${questions.length}', style: GoogleFonts.plusJakartaSans(
-                fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
-          ]),
-        ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: GestureDetector(
+              onTap: () { HapticFeedback.mediumImpact(); onGenerate('moyen'); },
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _kV.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _kV.withValues(alpha: 0.18)),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.refresh_rounded, size: 17, color: _kV),
+                  const SizedBox(width: 8),
+                  Text('Nouvel exercice', style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5, fontWeight: FontWeight.w800, color: _kV)),
+                ]),
+              ),
+            ),
+          ),
+        ],
         ...List.generate(questions.length, (qi) {
           final q        = questions[qi] as Map<String, dynamic>;
           final qText    = q['question'] as String? ?? '';
