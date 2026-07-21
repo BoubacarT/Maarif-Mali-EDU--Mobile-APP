@@ -18,6 +18,8 @@ import 'package:maarif_learn/widgets/web_video_player.dart';
 import 'package:maarif_learn/widgets/video_thumbnail.dart';
 import 'package:maarif_learn/widgets/offline_banner.dart';
 import 'package:maarif_learn/services/download_service.dart';
+import 'package:maarif_learn/services/voice_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io' show File;
 
 class CourseDetailPage extends StatefulWidget {
@@ -526,7 +528,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildBookPager(String text) {
-    return _BookPager(text: _normalizeDocumentText(_decodeHtmlEntities(text)));
+    return _ReadingView(text: _normalizeDocumentText(_decodeHtmlEntities(text)));
   }
 
   Widget _buildSolutionCard(String solution) {
@@ -1516,100 +1518,217 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 }
 
-class _BookPager extends StatefulWidget {
+/// Mode lecture pro : taille de police réglable, thèmes papier/clair/sombre,
+/// barre de progression et lecture à voix haute (« Écouter »).
+class _ReadingView extends StatefulWidget {
   final String text;
-
-  const _BookPager({required this.text});
+  const _ReadingView({required this.text});
 
   @override
-  State<_BookPager> createState() => _BookPagerState();
+  State<_ReadingView> createState() => _ReadingViewState();
 }
 
-class _BookPagerState extends State<_BookPager> {
-  static const int _maxCharsPerPage = 900;
-  late final List<String> _pages = _splitIntoPages(widget.text);
-  int _currentPage = 0;
+class _ReadingViewState extends State<_ReadingView> {
+  static const _fontKey = 'maarif_reading_font';
+  static const _themeKey = 'maarif_reading_theme';
+
+  // (fond, texte, bordure, sous-titre)
+  static const _palettes = [
+    (Color(0xFFFBF7EC), Color(0xFF2F2A24), Color(0xFFE7DFCC), Color(0xFF8A7F6A)), // Papier
+    (Colors.white,      Color(0xFF1A1A2E), Color(0xFFE9ECF2), Color(0xFF9AA1AE)), // Clair
+    (Color(0xFF14181F), Color(0xFFE4E7EC), Color(0xFF2A3038), Color(0xFF7E8794)), // Sombre
+  ];
+  static const _themeNames = ['Papier', 'Clair', 'Sombre'];
+  static const _themeIcons = [Icons.wb_sunny_rounded, Icons.light_mode_rounded, Icons.dark_mode_rounded];
+
+  double _font = 16.5;
+  int _theme = 0;
+  final _scroll = ScrollController();
+  double _progress = 0;
+  late final List<String> _paragraphs;
+
+  @override
+  void initState() {
+    super.initState();
+    _paragraphs = widget.text.split('\n\n').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+    _scroll.addListener(_onScroll);
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (mounted) setState(() {
+        _font = p.getDouble(_fontKey) ?? 16.5;
+        _theme = p.getInt(_themeKey) ?? 0;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setDouble(_fontKey, _font);
+      await p.setInt(_themeKey, _theme);
+    } catch (_) {}
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients || _scroll.position.maxScrollExtent <= 0) return;
+    setState(() => _progress = (_scroll.offset / _scroll.position.maxScrollExtent).clamp(0.0, 1.0));
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    VoiceService.stop();
+    super.dispose();
+  }
+
+  void _setFont(double delta) {
+    HapticFeedback.selectionClick();
+    setState(() => _font = (_font + delta).clamp(13.0, 24.0));
+    _save();
+  }
+
+  void _cycleTheme() {
+    HapticFeedback.selectionClick();
+    setState(() => _theme = (_theme + 1) % _palettes.length);
+    _save();
+  }
+
+  void _toggleListen() {
+    if (VoiceService.speaking.value) {
+      VoiceService.stop();
+    } else {
+      HapticFeedback.lightImpact();
+      VoiceService.speak(widget.text);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pageHeight = MediaQuery.of(context).size.height * 0.74;
+    final (bg, fg, border, sub) = _palettes[_theme];
 
-    return Column(
-      children: [
-        SizedBox(
-          height: pageHeight.clamp(380.0, 760.0),
-          child: PageView.builder(
-            itemCount: _pages.length,
-            onPageChanged: (index) => setState(() => _currentPage = index),
-            itemBuilder: (context, index) {
-              return Container(
-                margin: EdgeInsets.zero,
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+    return Column(children: [
+      // ── Barre d'outils lecture ────────────────────────────────
+      Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: border),
+        ),
+        child: Row(children: [
+          // Taille du texte
+          _ToolBtn(icon: Icons.text_decrease_rounded, color: fg, onTap: () => _setFont(-1)),
+          SizedBox(
+            width: 30,
+            child: Text('${_font.round()}', textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+          ),
+          _ToolBtn(icon: Icons.text_increase_rounded, color: fg, onTap: () => _setFont(1)),
+          const SizedBox(width: 4),
+          Container(width: 1, height: 22, color: border),
+          const SizedBox(width: 4),
+          // Thème de lecture
+          _ToolBtn(icon: _themeIcons[_theme], color: fg, onTap: _cycleTheme),
+          Text(_themeNames[_theme],
+              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700, color: sub)),
+          const Spacer(),
+          // Écouter le cours
+          ValueListenableBuilder<bool>(
+            valueListenable: VoiceService.speaking,
+            builder: (_, speaking, __) => GestureDetector(
+              onTap: _toggleListen,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFDF8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5DFD0)),
+                  gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0083A3)]),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: AppColors.teal.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    _pages[index],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.85,
-                      color: Color(0xFF2F2A24),
-                    ),
-                    textAlign: TextAlign.justify,
-                  ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(speaking ? Icons.stop_rounded : Icons.volume_up_rounded, size: 15, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(speaking ? 'Stop' : 'Écouter',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                ]),
+              ),
+            ),
+          ),
+        ]),
+      ),
+
+      // ── Barre de progression de lecture ───────────────────────
+      ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: LinearProgressIndicator(
+          value: _progress,
+          minHeight: 4,
+          backgroundColor: border,
+          valueColor: const AlwaysStoppedAnimation(AppColors.teal),
+        ),
+      ),
+      const SizedBox(height: 10),
+
+      // ── Surface de lecture ────────────────────────────────────
+      SizedBox(
+        height: (MediaQuery.of(context).size.height * 0.62).clamp(360.0, 900.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Scrollbar(
+            controller: _scroll,
+            child: SingleChildScrollView(
+              controller: _scroll,
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+              child: SelectableText.rich(
+                TextSpan(
+                  children: [
+                    for (final p in _paragraphs)
+                      TextSpan(
+                        text: '$p\n\n',
+                        style: GoogleFonts.notoSerif(
+                          fontSize: _font,
+                          height: 1.85,
+                          color: fg,
+                        ),
+                      ),
+                  ],
                 ),
-              );
-            },
+                textAlign: TextAlign.justify,
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          "Page ${_currentPage + 1} / ${_pages.length}  •  Glisser horizontalement",
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6D6355),
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ],
-    );
+      ),
+    ]);
   }
+}
 
-  List<String> _splitIntoPages(String input) {
-    final cleaned = input.trim();
-    if (cleaned.isEmpty) return const ["Aucun contenu."];
+// Petit bouton d'outil de lecture
+class _ToolBtn extends StatelessWidget {
+  const _ToolBtn({required this.icon, required this.color, required this.onTap});
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
 
-    final paragraphs = cleaned.split('\n\n');
-    final pages = <String>[];
-    final buffer = StringBuffer();
-    int currentCount = 0;
-
-    for (final rawParagraph in paragraphs) {
-      final paragraph = rawParagraph.trim();
-      if (paragraph.isEmpty) continue;
-      final extra = paragraph.length + (currentCount == 0 ? 0 : 2);
-
-      if (currentCount > 0 && currentCount + extra > _maxCharsPerPage) {
-        pages.add(buffer.toString().trim());
-        buffer.clear();
-        currentCount = 0;
-      }
-
-      if (currentCount > 0) {
-        buffer.write('\n\n');
-      }
-      buffer.write(paragraph);
-      currentCount += extra;
-    }
-
-    if (buffer.isNotEmpty) {
-      pages.add(buffer.toString().trim());
-    }
-
-    return pages.isEmpty ? const ["Aucun contenu."] : pages;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(7),
+        child: Icon(icon, size: 19, color: color),
+      ),
+    );
   }
 }
 

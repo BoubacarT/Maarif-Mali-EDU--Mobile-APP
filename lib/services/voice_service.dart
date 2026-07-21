@@ -68,12 +68,18 @@ class VoiceService {
 
   // ── Lecture à voix haute ─────────────────────────────────────
 
+  /// true tant qu'une lecture à voix haute est en cours (écoutable par l'UI).
+  static final ValueNotifier<bool> speaking = ValueNotifier(false);
+
   static Future<void> _initTts() async {
     if (_ttsReady) return;
     try {
       await _tts.setLanguage('fr-FR');
       await _tts.setSpeechRate(kIsWeb ? 1.0 : 0.5); // 0.5 = vitesse normale sur mobile
       await _tts.setPitch(1.0);
+      _tts.setCompletionHandler(() => speaking.value = false);
+      _tts.setCancelHandler(() => speaking.value = false);
+      _tts.setErrorHandler((_) => speaking.value = false);
       _ttsReady = true;
     } catch (_) {}
   }
@@ -99,11 +105,15 @@ class VoiceService {
     if (clean.isEmpty) return;
     try {
       await _tts.stop();
+      speaking.value = true;
       await _tts.speak(clean);
-    } catch (_) {}
+    } catch (_) {
+      speaking.value = false;
+    }
   }
 
   static Future<void> stop() async {
+    speaking.value = false;
     try { await _tts.stop(); } catch (_) {}
   }
 }
