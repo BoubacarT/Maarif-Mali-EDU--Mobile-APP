@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:maarif_learn/CourseDetailPage.dart';
 import 'package:maarif_learn/services/auth_storage.dart';
 import 'package:maarif_learn/services/study_plan_service.dart';
 import 'package:maarif_learn/theme/app_colors.dart';
@@ -195,6 +197,15 @@ class _PlanHeroHeader extends StatelessWidget {
     final progress = totalItems == 0 ? 0.0 : completedCount / totalItems;
     final hours = config?['daily_hours'];
     final days = (config?['study_days'] as List?)?.length ?? 0;
+    final motivation = totalItems == 0
+        ? 'Génère ton plan pour commencer'
+        : progress >= 1.0
+            ? 'Semaine terminée, bravo ! 🎉'
+            : progress >= 0.5
+                ? 'Tu es sur la bonne voie 🔥'
+                : progress > 0
+                    ? 'Bon début, continue ! 🌱'
+                    : 'Prêt à démarrer ta semaine ? 💪';
 
     return Container(
       decoration: const BoxDecoration(
@@ -220,8 +231,9 @@ class _PlanHeroHeader extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                               fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, height: 1.1)),
                       const SizedBox(height: 4),
-                      Text('Semaine en cours',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white60)),
+                      Text(motivation,
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.white70)),
                     ],
                   ),
                 ),
@@ -555,9 +567,18 @@ class _PlanItem extends StatelessWidget {
     final subject = (course?['subject'] as Map?)?['name'] as String? ?? '';
     final duration = item['duration_min'] as int? ?? 0;
     final itemId = item['id'] as int;
+    final courseId = course?['id'] as int?;
     final isDone = status == 'completed';
     final isMissed = status == 'missed';
     final isSkipped = status == 'skipped';
+
+    void openCourse() {
+      if (courseId == null) return;
+      HapticFeedback.lightImpact();
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => CourseDetailPage(courseId: courseId),
+      ));
+    }
 
     Color statusColor;
     IconData statusIcon;
@@ -581,82 +602,104 @@ class _PlanItem extends StatelessWidget {
       bgColor = Colors.transparent;
     }
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(children: [
-          // Status icon
-          GestureDetector(
-            onTap: status == 'planned'
-                ? () => onMark(itemId, 'completed')
-                : null,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-              child: Icon(statusIcon, color: statusColor, size: 22),
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: courseId != null ? openCourse : null,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
           ),
-          const SizedBox(width: 12),
-          // Infos
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                courseName,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isDone || isSkipped ? AppColors.textSecondary : AppColors.navy,
-                  decoration: isSkipped ? TextDecoration.lineThrough : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(children: [
+              // Cercle de statut — tap = marquer terminé
+              GestureDetector(
+                onTap: status == 'planned'
+                    ? () { HapticFeedback.mediumImpact(); onMark(itemId, 'completed'); }
+                    : null,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+                  child: Icon(statusIcon, color: statusColor, size: 22),
                 ),
               ),
-              const SizedBox(height: 3),
-              Row(children: [
-                if (subject.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: AppColors.teal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6)),
-                    child: Text(subject,
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.teal)),
+              const SizedBox(width: 12),
+              // Infos
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    courseName,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDone || isSkipped ? AppColors.textSecondary : AppColors.navy,
+                      decoration: isSkipped ? TextDecoration.lineThrough : null,
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                ],
-                Icon(Icons.timer_outlined, size: 11, color: Colors.grey.shade400),
-                const SizedBox(width: 3),
-                Text('$duration min',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-              ]),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    if (subject.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: AppColors.teal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text(subject,
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.teal)),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Icon(Icons.timer_outlined, size: 11, color: Colors.grey.shade400),
+                    const SizedBox(width: 3),
+                    Text('$duration min',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                  ]),
+                ]),
+              ),
+              // Badge « Fait » ou affordance « Étudier »
+              if (isDone)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: _kGreenLight, borderRadius: BorderRadius.circular(8)),
+                  child: Text('✓ Fait',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10, fontWeight: FontWeight.w800, color: _kGreen)),
+                )
+              else if (!isSkipped && courseId != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.teal.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text('Étudier', style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5, fontWeight: FontWeight.w800, color: AppColors.teal)),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.chevron_right_rounded, size: 15, color: AppColors.teal),
+                  ]),
+                ),
+              // Menu actions (planned ou missed)
+              if (status == 'planned' || status == 'missed')
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert_rounded, color: Colors.grey.shade400, size: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  onSelected: (val) => onMark(itemId, val),
+                  itemBuilder: (_) => [
+                    if (status != 'completed') _menuItem('completed', Icons.check_circle_rounded, _kGreen, 'Marquer terminé'),
+                    if (status != 'skipped') _menuItem('skipped', Icons.skip_next_rounded, Colors.grey, 'Passer'),
+                    if (status != 'missed') _menuItem('missed', Icons.cancel_rounded, Colors.red, 'Marquer manqué'),
+                    if (status == 'missed') _menuItem('planned', Icons.replay_rounded, AppColors.teal, 'Replanifier'),
+                  ],
+                ),
             ]),
           ),
-          // Menu actions (seulement si planned ou missed)
-          if (status == 'planned' || status == 'missed')
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert_rounded, color: Colors.grey.shade400, size: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              onSelected: (val) => onMark(itemId, val),
-              itemBuilder: (_) => [
-                if (status != 'completed') _menuItem('completed', Icons.check_circle_rounded, _kGreen, 'Marquer terminé'),
-                if (status != 'skipped') _menuItem('skipped', Icons.skip_next_rounded, Colors.grey, 'Passer'),
-                if (status != 'missed') _menuItem('missed', Icons.cancel_rounded, Colors.red, 'Marquer manqué'),
-                if (status == 'missed') _menuItem('planned', Icons.replay_rounded, AppColors.teal, 'Replanifier'),
-              ],
-            ),
-          if (isDone)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: _kGreenLight, borderRadius: BorderRadius.circular(8)),
-              child: Text('✓ Fait',
-                  style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10, fontWeight: FontWeight.w800, color: _kGreen)),
-            ),
-        ]),
+        ),
       ),
     );
   }
