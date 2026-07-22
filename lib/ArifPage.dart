@@ -28,6 +28,11 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
   List<dynamic> _recommendations = [];
   Map<String, dynamic>? _aiStats;
   Map<String, dynamic>? _gamification;
+  String _levelName = '';
+  bool _isCollege = false; // 7e/8e/9e → DEF ; sinon lycée → BAC
+
+  /// Nom de l'examen visé selon le niveau (utilisé pour adapter MAARIFA).
+  String get _examName => _isCollege ? 'DEF' : 'BAC';
 
   @override
   void initState() {
@@ -45,7 +50,14 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
   Future<void> _init() async {
     final token = await AuthStorage.getToken();
     if (token == null) return;
-    setState(() { _token = token; });
+    // Niveau de l'élève → détermine DEF (collège) ou BAC (lycée)
+    final user = await AuthStorage.getUser();
+    final levelName = (user?['level'] as Map?)?['name']?.toString() ?? '';
+    final l = levelName.toLowerCase();
+    final isCollege = l.contains('coll') ||
+        l.contains('6e') || l.contains('6è') || l.contains('7e') || l.contains('7è') ||
+        l.contains('8e') || l.contains('8è') || l.contains('9e') || l.contains('9è');
+    setState(() { _token = token; _levelName = levelName; _isCollege = isCollege; });
     // Générer les alertes intelligentes à chaque ouverture
     ArifService.generateAlerts(token);
     await Future.wait([_loadRecommendations(), _loadStats(), _loadGamification()]);
@@ -93,6 +105,7 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
           gamification: _gamification,
           tabs: _tabs,
           recCount: _recommendations.length,
+          subtitle: _levelName.isNotEmpty ? '$_levelName · Objectif $_examName' : 'Intelligence Pédagogique',
         ),
         Expanded(
           child: TabBarView(
@@ -100,7 +113,8 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
             children: [
               _token == null
                   ? const Center(child: CircularProgressIndicator(color: _kViolet))
-                  : _ChatTab(token: _token!, onStatsRefresh: _loadStats),
+                  : _ChatTab(token: _token!, onStatsRefresh: _loadStats,
+                      isCollege: _isCollege, examName: _examName, levelName: _levelName),
               _loadingRec
                   ? const Center(child: CircularProgressIndicator(color: _kViolet))
                   : _RecommendationsTab(
@@ -121,23 +135,21 @@ class _ArifPageState extends State<ArifPage> with SingleTickerProviderStateMixin
 // HERO HEADER
 // ════════════════════════════════════════════════════════════
 class _MaarifaHeader extends StatelessWidget {
-  const _MaarifaHeader({required this.stats, required this.gamification, required this.tabs, required this.recCount});
+  const _MaarifaHeader({required this.stats, required this.gamification, required this.tabs, required this.recCount, this.subtitle = 'Intelligence Pédagogique'});
   final Map<String, dynamic>? stats;
   final Map<String, dynamic>? gamification;
   final TabController tabs;
   final int recCount;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     final remaining = stats?['messages_remaining'] as int? ?? 30;
-    final limit     = stats?['messages_limit'] as int? ?? 30;
-    final used      = stats?['messages_today'] as int? ?? 0;
     final xp        = gamification?['xp_points'] as int? ?? 0;
     final level     = gamification?['level'] as int? ?? 1;
     final levelName = gamification?['level_name'] as String? ?? 'Débutant';
     final xpNext    = gamification?['xp_next_level'] as int? ?? 100;
     final xpProgress = xpNext > 0 ? (xp / xpNext).clamp(0.0, 1.0) : 0.0;
-    final msgProgress = limit > 0 ? used / limit : 0.0;
     final streak    = gamification?['streak_days'] as int? ?? 0;
 
     return Container(
@@ -177,9 +189,10 @@ class _MaarifaHeader extends StatelessWidget {
                               fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white)),
                     ),
                   ]),
-                  Text('Intelligence Pédagogique · Maarif Turkiye',
+                  Text(subtitle,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9, color: Colors.white38)),
+                          fontSize: 9.5, color: _kGold.withValues(alpha: 0.75), fontWeight: FontWeight.w600)),
                 ]),
                 const Spacer(),
                 // Badge XP + streak
@@ -225,49 +238,28 @@ class _MaarifaHeader extends StatelessWidget {
                 ]),
               ]),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // ── Ligne 2 : XP bar + messages bar ────────────────
+              // ── Barre de progression XP (unique, épurée) ───────
               Row(children: [
-                // XP progress
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(levelName,
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8, color: Colors.white38, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 3),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: xpProgress,
-                        minHeight: 3,
-                        backgroundColor: Colors.white10,
-                        valueColor: const AlwaysStoppedAnimation<Color>(_kGold),
-                      ),
-                    ),
-                  ]),
-                ),
-                const SizedBox(width: 10),
-                // Messages used
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('$used / $limit messages',
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8, color: Colors.white38, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 3),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: msgProgress,
-                        minHeight: 3,
-                        backgroundColor: Colors.white10,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            msgProgress > 0.8 ? Colors.redAccent : Colors.white38),
-                      ),
-                    ),
-                  ]),
-                ),
+                Text(levelName,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9, color: Colors.white54, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('$xp / $xpNext XP',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9, color: Colors.white38, fontWeight: FontWeight.w600)),
               ]),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: xpProgress,
+                  minHeight: 4,
+                  backgroundColor: Colors.white10,
+                  valueColor: const AlwaysStoppedAnimation<Color>(_kGold),
+                ),
+              ),
 
               const SizedBox(height: 12),
             ]),
@@ -312,9 +304,18 @@ class _MaarifaHeader extends StatelessWidget {
 // CHAT TAB
 // ════════════════════════════════════════════════════════════
 class _ChatTab extends StatefulWidget {
-  const _ChatTab({required this.token, required this.onStatsRefresh});
+  const _ChatTab({
+    required this.token,
+    required this.onStatsRefresh,
+    this.isCollege = false,
+    this.examName = 'BAC',
+    this.levelName = '',
+  });
   final String token;
   final VoidCallback onStatsRefresh;
+  final bool isCollege;
+  final String examName;
+  final String levelName;
   @override
   State<_ChatTab> createState() => _ChatTabState();
 }
@@ -331,12 +332,14 @@ class _ChatTabState extends State<_ChatTab> {
   bool  _transcribing = false;
   bool  _ttsEnabled   = false;
 
-  static const _suggestions = [
+  /// Suggestions adaptées au niveau : un collégien prépare le DEF, un lycéen le BAC.
+  List<(String, String)> get _suggestions => [
     ('📚', 'Résumer un cours'),
-    ('📊', 'Mon niveau actuel'),
-    ('🎯', 'Préparer le BAC'),
+    ('🎯', 'Préparer le ${widget.examName}'),
     ('⚠️', 'Mes matières faibles'),
     ('📅', 'Mon plan de révision'),
+    if (!widget.isCollege) ('🔮', 'Ma prédiction ${widget.examName}'),
+    ('💡', 'Explique-moi simplement'),
     ('✅', 'Conseil du jour'),
   ];
 
@@ -488,8 +491,11 @@ class _ChatTabState extends State<_ChatTab> {
           _conversationId = convId;
           _initializing   = false;
           if (historicMsgs.isEmpty) {
-            _messages.add(const _Msg(
-              text: 'Bonjour ! Je suis **MAARIFA**, ton assistante pédagogique. Je connais ton niveau, tes cours et tes résultats.\n\nPose-moi n\'importe quelle question ! 🌟',
+            final ctx = widget.levelName.isNotEmpty
+                ? 'Je connais ton niveau (${widget.levelName}) et je t\'accompagne vers le **${widget.examName}**.'
+                : 'Je connais ton niveau, tes cours et tes résultats.';
+            _messages.add(_Msg(
+              text: 'Bonjour ! Je suis **MAARIFA**, ton assistante pédagogique. $ctx\n\nPose-moi n\'importe quelle question ! 🌟',
               isAi: true,
             ));
           } else {
