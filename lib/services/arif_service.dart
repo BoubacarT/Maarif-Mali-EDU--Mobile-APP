@@ -78,6 +78,9 @@ class ArifService {
         if (question != null && question.isNotEmpty) 'question': question,
       }),
     ).timeout(const Duration(seconds: 75));
+    if (res.statusCode == 401) {
+      throw Exception('Ta session a expiré. Reconnecte-toi pour continuer.');
+    }
     final body = jsonDecode(res.body);
     if (res.statusCode == 200) return body['explanation'] ?? '';
     throw Exception(body['message'] ?? 'Erreur analyse image');
