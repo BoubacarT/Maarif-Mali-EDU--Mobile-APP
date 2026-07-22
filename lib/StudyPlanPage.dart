@@ -78,16 +78,18 @@ class _StudyPlanPageState extends State<StudyPlanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF4F7FB),
-        body: Center(child: CircularProgressIndicator(color: _kGreen, strokeWidth: 3)),
+      return Container(
+        color: bg,
+        child: const Center(child: CircularProgressIndicator(color: _kGreen, strokeWidth: 3)),
       );
     }
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF4F7FB),
-        body: Center(
+      return Container(
+        color: bg,
+        child: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -109,17 +111,19 @@ class _StudyPlanPageState extends State<StudyPlanPage> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
-      body: RefreshIndicator(
+    final missedCount = _weekItems.where((i) => (i as Map)['status'] == 'missed').length;
+
+    return Container(
+      color: bg,
+      child: RefreshIndicator(
         color: _kGreen,
         onRefresh: _load,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           slivers: [
-            // ── Hero header ──────────────────────────────────────────────
+            // ── Hero card compact ────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _PlanHeroHeader(
+              child: _PlanHeroCard(
                 config: _config,
                 totalItems: _weekItems.length,
                 completedCount: _completedCount,
@@ -129,28 +133,24 @@ class _StudyPlanPageState extends State<StudyPlanPage> {
               ),
             ),
 
-            // ── Corps ─────────────────────────────────────────────────────
             if (_weekItems.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyPlan(onGenerate: _showGenerateSheet),
-              )
+              SliverToBoxAdapter(child: _EmptyPlan(onGenerate: _showGenerateSheet))
             else ...[
               // Stats rapides
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 sliver: SliverToBoxAdapter(child: _StatsRow(
                   completedCount: _completedCount,
                   totalItems: _weekItems.length,
                   completedMin: _completedMin,
                   totalMin: _totalMin,
-                  missedCount: _weekItems.where((i) => (i as Map)['status'] == 'missed').length,
+                  missedCount: missedCount,
                 )),
               ),
 
               // Titre semaine
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
                 sliver: SliverToBoxAdapter(
                   child: Row(children: [
                     Container(width: 4, height: 20,
@@ -163,9 +163,9 @@ class _StudyPlanPageState extends State<StudyPlanPage> {
                 ),
               ),
 
-              // Jours
+              // Jours — marge basse pour dégager la barre de nav flottante
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 130),
                 sliver: SliverToBoxAdapter(child: _WeekView(items: _weekItems, onMark: _markItem)),
               ),
             ],
@@ -177,10 +177,10 @@ class _StudyPlanPageState extends State<StudyPlanPage> {
 }
 
 // ════════════════════════════════════════════════════════════
-// HERO HEADER
+// HERO CARD — carte premium compacte
 // ════════════════════════════════════════════════════════════
-class _PlanHeroHeader extends StatelessWidget {
-  const _PlanHeroHeader({
+class _PlanHeroCard extends StatelessWidget {
+  const _PlanHeroCard({
     required this.config,
     required this.totalItems,
     required this.completedCount,
@@ -208,107 +208,103 @@ class _PlanHeroHeader extends StatelessWidget {
                     : 'Prêt à démarrer ta semaine ? 💪';
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
           colors: [Color(0xFF065F46), _kGreen],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: _kGreen.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8)),
+        ],
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Mon Plan d\'Étude',
-                          style: GoogleFonts.plusJakartaSans(
-                              fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, height: 1.1)),
-                      const SizedBox(height: 4),
-                      Text(motivation,
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.white70)),
-                    ],
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Mon Plan d\'Étude',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, height: 1.1)),
+                  const SizedBox(height: 4),
+                  Text(motivation,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: Colors.white70)),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () { HapticFeedback.lightImpact(); onGenerate(); },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                // Bouton générer
-                GestureDetector(
-                  onTap: onGenerate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white30),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.auto_fix_high_rounded, color: _kGreenDark, size: 16),
+                  const SizedBox(width: 6),
+                  Text('Générer', style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12, fontWeight: FontWeight.w800, color: _kGreenDark)),
+                ]),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 18),
+          Row(children: [
+            // Anneau de progression
+            SizedBox(
+              width: 74, height: 74,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const SizedBox(
+                    width: 74, height: 74,
+                    child: CircularProgressIndicator(value: 1.0, strokeWidth: 6, color: Colors.white24),
+                  ),
+                  SizedBox(
+                    width: 74, height: 74,
+                    child: CircularProgressIndicator(
+                      value: progress, strokeWidth: 6,
+                      color: Colors.white, backgroundColor: Colors.transparent,
+                      strokeCap: StrokeCap.round,
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 16),
-                      const SizedBox(width: 6),
-                      Text('Générer', style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ]),
                   ),
-                ),
-              ]),
-              const SizedBox(height: 20),
-              // Progression circulaire + infos config
-              Row(children: [
-                // Anneau de progression
-                SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: 1.0,
-                        strokeWidth: 6,
-                        color: Colors.white12,
-                      ),
-                      CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 6,
-                        color: Colors.white,
-                        backgroundColor: Colors.transparent,
-                      ),
-                      Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text('${(progress * 100).round()}%',
-                            style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
-                        Text('fait', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white60)),
-                      ]),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                // Config infos
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _InfoRow(icon: Icons.check_circle_rounded,
-                          label: '$completedCount / $totalItems leçons terminées', color: Colors.white),
-                      const SizedBox(height: 6),
-                      _InfoRow(icon: Icons.schedule_rounded,
-                          label: '$completedMin / $totalMin minutes', color: Colors.white70),
-                      if (hours != null) ...[
-                        const SizedBox(height: 6),
-                        _InfoRow(icon: Icons.wb_sunny_rounded,
-                            label: '$hours h/jour · $days jours/semaine', color: Colors.white70),
-                      ],
-                    ],
-                  ),
-                ),
-              ]),
-            ],
-          ),
-        ),
+                  Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('${(progress * 100).round()}%',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text('fait', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: Colors.white60)),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _InfoRow(icon: Icons.check_circle_rounded,
+                      label: '$completedCount / $totalItems leçons terminées', color: Colors.white),
+                  const SizedBox(height: 7),
+                  _InfoRow(icon: Icons.schedule_rounded,
+                      label: '$completedMin / $totalMin minutes', color: Colors.white70),
+                  if (hours != null) ...[
+                    const SizedBox(height: 7),
+                    _InfoRow(icon: Icons.wb_sunny_rounded,
+                        label: '$hours h/jour · $days jours/semaine', color: Colors.white70),
+                  ],
+                ],
+              ),
+            ),
+          ]),
+        ],
       ),
     );
   }
@@ -726,7 +722,7 @@ class _EmptyPlan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 130),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
