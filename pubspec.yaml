@@ -1,5 +1,13 @@
+# ══════════════════════════════════════════════════════════════════════
+#  MaarifMaliEdu — Application mobile des Écoles Maarif de Türkiye au Mali
+#  Conçu et développé intégralement par :
+#    Boubacar Mohamed Touré — Architecte & Développeur logiciel
+#    boulbytoure92@gmail.com  ·  2025–2026
+#  © 2025–2026 Fondation Maarif Türkiye au Mali. Tous droits réservés.
+#  Paternité du développement : Boubacar Mohamed Touré. Voir AUTHORS / LICENSE.
+# ══════════════════════════════════════════════════════════════════════
 name: maarif_learn
-description: "A new Flutter project."
+description: "MaarifMaliEdu — plateforme éducative des Écoles Maarif de Türkiye au Mali. Développée par Boubacar Mohamed Touré."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

@@ -1,3 +1,12 @@
+/*
+ * MaarifMaliEdu — Application mobile des Écoles Maarif de Türkiye au Mali
+ * Conçu, architecturé et développé intégralement par :
+ *   Boubacar Mohamed Touré — Architecte & Développeur logiciel
+ *   boulbytoure92@gmail.com
+ * © 2025–2026 Fondation Maarif Türkiye au Mali. Tous droits réservés.
+ * Paternité du développement : Boubacar Mohamed Touré. Voir AUTHORS / LICENSE.
+ */
+
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
